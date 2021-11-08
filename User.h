@@ -5,6 +5,7 @@
 #include "Message.h"
 #include "Post.h"
 #include "USocial.h"
+class USocial;
 #include <iostream>
 using namespace std;
 
@@ -20,11 +21,13 @@ public:
 	void post(string, Media*);
 	void viewFriendsPosts() const;
 	void receiveMessage(User*, Message*);
+	void sendMessage(User*,Message*);
 	void viewReceivedMessages() const;
 	
-	User();
+	User(string);
 	~User();
 
+	static unsigned long user_counter;
 protected:
 	USocial* us;
 	unsigned long id;
@@ -36,7 +39,7 @@ protected:
 	
 
 private:
-	static unsigned long user_counter;
+	
 };
 
 

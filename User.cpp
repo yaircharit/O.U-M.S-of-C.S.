@@ -1,9 +1,9 @@
 #include "User.h"
 
 unsigned long User::user_counter = 0;
-User::User() {
+User::User(string username) {
 	id = user_counter++;
-	name = "User #"+ to_string(id);
+	name = (username=="")? "User #"+ to_string(id): username;
 	friends = list<unsigned long>();
 	posts = list<Post*>();
 	recievedMsgs = list<Message*>();
@@ -33,6 +33,9 @@ void User::viewFriendsPosts() const {
 	
 }
 void User::receiveMessage(User*, Message*) {
+
+}
+void User::sendMessage(User*, Message*) {
 
 }
 void User::viewReceivedMessages() const {
