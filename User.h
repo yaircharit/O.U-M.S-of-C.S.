@@ -4,9 +4,9 @@
 #include <list>
 #include "Message.h"
 #include "Post.h"
+#include <iostream>
 #include "USocial.h"
 class USocial;
-#include <iostream>
 using namespace std;
 
 class User
@@ -17,15 +17,13 @@ public:
 	list<Post*> getPosts() const;
 	void addFriend(User*);
 	void removeFriend(User*);
-	void post(string);
-	void post(string, Media*);
+	void post(string text, Media* media=nullptr);
 	void viewFriendsPosts() const;
-	void receiveMessage(User*, Message*);
-	void sendMessage(User*,Message*);
+	void receiveMessage(Message*);
+	void sendMessage(User*,Message*) const;
 	void viewReceivedMessages() const;
 	
-	User(string);
-	~User();
+	
 
 	static unsigned long user_counter;
 protected:
@@ -35,8 +33,12 @@ protected:
 	list<unsigned long> friends;
 	list<Post*> posts;
 	list<Message*> recievedMsgs;
+
+	User(USocial * const net=NULL, string username="");
+	~User();
+
 	friend ostream& operator<<(ostream&, const  User&);
-	
+	friend class USocial;
 
 private:
 	

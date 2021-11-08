@@ -3,13 +3,13 @@
 
 #include <string>
 #include <iostream>
+
 using namespace std;
 
 class Media
 {
 public:
 	virtual void display() = 0;
-
 private:
 
 };

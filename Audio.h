@@ -7,8 +7,7 @@ using namespace std;
 class Audio : public Media
 {
 public:
-	void display() { cout << "Audio" << endl; }
-
+	void display() { cout << "Audio:\t"; }
 private:
 
 };

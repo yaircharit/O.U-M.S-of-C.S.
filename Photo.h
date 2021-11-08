@@ -7,8 +7,7 @@ using namespace std;
 class Photo : public Media
 {
 public:
-	void display() { cout << "Photo" << endl; }
-
+	void display() { cout << "Photo:\t"; }
 private:
 
 };

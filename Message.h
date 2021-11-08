@@ -11,11 +11,12 @@ public:
 	~Message(){}
 
 	string getText() { return text; }
-	static unsigned long msg_counter;
+	friend ostream& operator<<(ostream& os, const Message&);
 private:
 	string text;
 	
 };
-//unsigned long Message::msg_counter = 0;
+
+
 
 #endif
