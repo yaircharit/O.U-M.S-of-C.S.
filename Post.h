@@ -7,9 +7,9 @@ using namespace std;
 class Post
 {
 public:
-	Post(string);
-	Post(string, Media*);
-	~Post();
+	Post(string){}
+	Post(string, Media*){}
+	~Post(){}
 
 	string getText() { return text; }
 	Media* getMedia() { return media; }

@@ -8,10 +8,11 @@ using namespace std;
 class USocial
 {
 public:
-	User* registerUser(string, bool);
-	void removeUser(User*);
-	User *getUserById(unsigned long);
-	friend class User;
+	USocial() { ; }
+	~USocial() { ; }
+	User * registerUser(string s, bool b) { return nullptr; }
+	void removeUser(User* u) { ; }
+	User* getUserById(unsigned long id) { return nullptr; }
 private:
 	map<unsigned long, User*> users;
 };

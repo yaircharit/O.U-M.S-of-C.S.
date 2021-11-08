@@ -4,22 +4,26 @@
 #include <list>
 #include "Message.h"
 #include "Post.h"
+#include "USocial.h"
+#include <iostream>
 using namespace std;
 
 class User
 {
 public:
-	unsigned long getId() { return id; }
-	string getName() { return name; }
-	list<Post*> getPosts();
+	unsigned long getId() const;
+	string getName() const;
+	list<Post*> getPosts() const;
 	void addFriend(User*);
 	void removeFriend(User*);
 	void post(string);
 	void post(string, Media*);
-	void viewFriendsPosts();
+	void viewFriendsPosts() const;
 	void receiveMessage(User*, Message*);
-	void viewReceivedMessages();
+	void viewReceivedMessages() const;
 	
+	User();
+	~User();
 
 protected:
 	USocial* us;
@@ -28,12 +32,11 @@ protected:
 	list<unsigned long> friends;
 	list<Post*> posts;
 	list<Message*> recievedMsgs;
-
-	User();
-	~User();
+	friend ostream& operator<<(ostream&, const  User&);
+	
 
 private:
-
+	static unsigned long user_counter;
 };
 
 

@@ -1,8 +1,10 @@
 #include <iostream>
+#include "User.h"
 
 using namespace std;
 
 int main() {
-	cout << "HHIIII" << endl;
+	User u1 = User();
+	cout << u1 << endl;
 	return 0;
 }
