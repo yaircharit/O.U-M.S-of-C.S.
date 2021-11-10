@@ -40,6 +40,8 @@ void User::receiveMessage(Message*msg) {
 	recievedMsgs.push_back(msg);
 }
 void User::sendMessage(User*user, Message*msg) const{
+	if (find(friends.begin(), friends.end(), user->getId()) == friends.end())
+		throw NotFriendsException();
 	user->receiveMessage(msg);
 }
 void User::viewReceivedMessages() const {
@@ -48,4 +50,9 @@ void User::viewReceivedMessages() const {
 
 ostream& operator<<(ostream& os, const User& user) {
 	return os << user.name;
+}
+
+void BusinessUser::sendMessage(User*user, Message*msg) const{
+	if (user != nullptr)
+		user->receiveMessage(msg);
 }

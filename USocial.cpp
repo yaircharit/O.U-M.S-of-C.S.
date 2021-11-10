@@ -6,8 +6,8 @@ USocial::USocial() {
 USocial::~USocial() { 
     for (auto pr : users){ delete pr.second; }
  }
-User *USocial::registerUser(string username, bool b){
-    User *user = new User(this,username);
+User *USocial::registerUser(string username, bool isBusiness){
+    User *user = (isBusiness)? new BusinessUser(this,username): new User(this,username);
     users.insert(pair<unsigned long, User*>(user->getId(), user));
     return user;
 }
