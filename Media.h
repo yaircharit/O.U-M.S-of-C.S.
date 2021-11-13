@@ -1,8 +1,6 @@
-#ifndef MEDIA_H
-#define MEDIA_H
-
-#include <string>
+#pragma once
 #include <iostream>
+#include <string>
 
 using namespace std;
 
@@ -10,10 +8,5 @@ class Media
 {
 public:
 	virtual void display() = 0;
-private:
-
 };
-
-#endif
-
 

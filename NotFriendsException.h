@@ -1,18 +1,10 @@
-#ifndef NOT_FRIENDS_EXCEPTION_H
-#define NOT_FRIENDS_EXCEPTION_H
-
+#pragma once
 #include <stdexcept>
 
+using namespace std;
+
 class NotFriendsException : public std::runtime_error {
-private:
-    const char *_msg = "Users are NOT friends!";
 public:
-    NotFriendsException() : std::runtime_error(_msg) {;}
-    ~NotFriendsException(){}
-
-    const char* what() const throw(){
-        return _msg;
-    }
+	NotFriendsException(const char *msg= "Users are NOT friends!") : std::runtime_error(msg) { }
+	~NotFriendsException() {}
 };
-
-#endif

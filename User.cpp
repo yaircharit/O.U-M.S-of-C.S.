@@ -1,10 +1,11 @@
+#include "USocial.h"
 #include "User.h"
 
 unsigned long User::user_counter = 0;
 User::User(USocial * const net, string username) {
 	us = net;
 	id = user_counter++;
-	name = (username=="")? "User #"+ to_string(id): username;
+	name = (username == "") ? "User #" + to_string(id) : username;
 	friends = list<unsigned long>();
 	posts = list<Post*>();
 	recievedMsgs = list<Message*>();
@@ -19,6 +20,8 @@ unsigned long User::getId() const { return id; }
 string User::getName() const { return name; }
 list<Post*> User::getPosts() const { return posts; }
 void User::addFriend(User* user) {
+	if (find(friends.begin(), friends.end(), user->getId()) != friends.end())
+		throw AlreadyFriendsException();
 	friends.push_back(user->id);
 }
 void User::removeFriend(User* user) {
@@ -31,7 +34,7 @@ void User::post(string text, Media*media) {
 void User::viewFriendsPosts() const {
 	for (auto friend_id : friends) {
 		User *user = us->getUserById(friend_id);
-		for (auto post : user->posts){
+		for (auto post : user->posts) {
 			cout << *post << endl;
 		}
 	}
@@ -39,7 +42,7 @@ void User::viewFriendsPosts() const {
 void User::receiveMessage(Message*msg) {
 	recievedMsgs.push_back(msg);
 }
-void User::sendMessage(User*user, Message*msg) const{
+void User::sendMessage(User*user, Message*msg) const throw (NotFriendsException){
 	if (find(friends.begin(), friends.end(), user->getId()) == friends.end())
 		throw NotFriendsException();
 	user->receiveMessage(msg);
@@ -52,7 +55,3 @@ ostream& operator<<(ostream& os, const User& user) {
 	return os << user.name;
 }
 
-void BusinessUser::sendMessage(User*user, Message*msg) const{
-	if (user != nullptr)
-		user->receiveMessage(msg);
-}

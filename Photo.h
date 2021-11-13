@@ -1,15 +1,9 @@
-#ifndef PHOTO_H
-#define PHOTO_H
-
+#pragma once
 #include "Media.h"
-using namespace std;
-
-class Photo : public Media
+class Photo :
+	public Media
 {
 public:
 	void display() { cout << "Photo:\t"; }
-private:
-
 };
 
-#endif
