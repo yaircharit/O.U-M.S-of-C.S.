@@ -19,7 +19,7 @@ User::~User() {
 unsigned long User::getId() const { return id; }
 string User::getName() const { return name; }
 list<Post*> User::getPosts() const { return posts; }
-void User::addFriend(User* user) {
+void User::addFriend(User* user) throw (AlreadyFriendsException) {
 	if (find(friends.begin(), friends.end(), user->getId()) != friends.end())
 		throw AlreadyFriendsException();
 	friends.push_back(user->id);
