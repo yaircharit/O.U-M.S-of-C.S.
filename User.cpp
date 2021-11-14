@@ -1,11 +1,11 @@
 #include "USocial.h"
 #include "User.h"
 
-unsigned long User::user_counter = 0;
+unsigned long User::user_counter = 0;		//static user counter
 User::User(USocial * const net, string username) {
 	us = net;
 	id = user_counter++;
-	name = (username == "") ? "User #" + to_string(id) : username;
+	name = (username == "") ? "User #" + to_string(id) : username; //default username
 	friends = list<unsigned long>();
 	posts = list<Post*>();
 	recievedMsgs = list<Message*>();
@@ -25,7 +25,8 @@ void User::addFriend(User* user) throw (AlreadyFriendsException) {
 	friends.push_back(user->id);
 }
 void User::removeFriend(User* user) {
-	friends.remove(user->id);
+	if (user != nullptr)
+		friends.remove(user->id);
 }
 
 void User::post(string text, Media*media) {
@@ -39,7 +40,9 @@ void User::viewFriendsPosts() const {
 		}
 	}
 }
-void User::receiveMessage(Message*msg) {
+void User::receiveMessage(Message*msg) throw(IllegalMessageException) {
+	if (msg == nullptr)
+		throw IllegalMessageException();
 	recievedMsgs.push_back(msg);
 }
 void User::sendMessage(User*user, Message*msg) const throw (NotFriendsException){

@@ -1,6 +1,7 @@
 #pragma once
 #include "NotFriendsException.h"
 #include "AlreadyFriendsException.h"
+#include "IllegalMessageException.h"
 #include <list>
 #include <algorithm>
 #include "Message.h"

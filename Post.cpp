@@ -2,7 +2,7 @@
 
 ostream &operator<<(ostream &os, const Post &p)
 {
-	if (p.media != nullptr)
+	if (p.media != nullptr) //Print media if exists
 		p.media->display();
 
 	os << p.text;

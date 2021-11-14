@@ -13,7 +13,8 @@ User *USocial::registerUser(string username, bool isBusiness) {
 }
 
 void USocial::removeUser(User *user) {
-	users.erase(user->getId());
+	if (user != nullptr)
+		users.erase(user->getId());
 }
 User *USocial::getUserById(unsigned long id) {
 	return users[id];
