@@ -1,0 +1,278 @@
+<html>
+
+<head>
+    <link rel="stylesheet" href="GlobalWarming.css">
+    <title>Game of Global Warming</title>
+</head>
+
+<body>
+    <div id='gametable'>
+        
+
+        <div id='buttons'>
+            <button id="button-step" onclick="gb.update()">1 Step</button>
+            <button id="button-run" onclick='this.style.backgroundColor="gray"; gb.run()'>Run</button>
+            <button id="button-stop" onclick='onStopClick()'>Stop</button>
+            <label id='time-label'>Time: 0</label>
+        </div>
+        <div id='gameboard'></div>
+    </div>
+
+
+    <script>
+        const water_border = 3
+        const city_precentage = 98
+        const forest_precentage = 30
+        const glacier_precentage = 90
+
+
+        let elem = document.getElementById('gameboard');
+        let stopB = document.getElementById('button-stop');
+        let runB = document.getElementById('button-run');
+
+        function mod(num1, num2) {
+            return (num1 + num2) % num2;
+        }
+        function sleep(milliseconds) {
+            return new Promise(resolve => setTimeout(resolve, milliseconds))
+        }
+        function rand(num){
+            return Math.round(Math.random()*num)
+        }
+        function onStopClick() {
+            if (gb.running) {
+                gb.running = false;
+                stopB.style.backgroundColor = "gray"
+                runB.style.backgroundColor = "rgb(66, 146, 66)"
+            }
+        }
+        class GameTileView {
+            constructor() {
+                this.panel = document.createElement('div');
+                this.panel.classList.add('game-tile')
+
+                this.tempLabel = document.createElement('label')
+                this.panel.appendChild(this.tempLabel)
+
+                this.polLabel = document.createElement('label')
+                this.panel.appendChild(this.polLabel)
+
+                this.windLabel = document.createElement('label')
+                this.panel.appendChild(this.windLabel)
+
+                this.cloudsLabel = document.createElement('label')
+                this.panel.appendChild(this.cloudsLabel)
+            }
+
+            update(env = 'water', temp = 0, pol = 0, height = 0) {
+                this.envColor(env)
+                this.tempLabel.innerHTML = `Temp: ${temp}`
+                this.polLabel.innerHTML = `Pol: ${pol}`
+                this.windLabel.innerHTML = `W: ERROR`
+                // this.heightLabel.innerHTML = `Height: ${height}`
+            }
+
+            update(gametile) {
+                this.envColor(gametile.env)
+                this.tempLabel.innerHTML = `Temp: ${gametile.temp.toFixed(2)}`
+                this.polLabel.innerHTML = `Pol: ${gametile.polution.toFixed(2)}`
+                this.windLabel.innerHTML = `W: ${gametile.wind_str}, ->${gametile.wind_dir}`
+                this.cloudsLabel.innerHTML = `C: ${gametile.clouds}, ${gametile.rain}`
+                // this.heightLabel.innerHTML = `Height: ${gametile.height}`
+            }
+
+            envColor(env) {
+                this.panel.style.backgroundColor = `var(--${env}-color)`;
+            }
+        }
+
+        class GameTile {
+            constructor(loc = [0, 0], env = 'water', temp = -999, pol = -999, height = -999, tileView = undefined) {
+                this.location = loc;
+                this.env = env;
+                this.temp = (temp != -999) ? temp : this.envTemp
+                this.polution = (pol != -999) ? pol : (this.env == 'city')? 30: (this.env == 'forest')? 2 : 0
+                if (this.polution < 0)
+                    this.polution = 0;
+                this.height = (height != -999) ? height : 0;
+                this.wind_str = rand(4)
+                this.wind_dir = (this.wind_str > 0)? rand(8):-1
+                this.clouds = rand(3)
+                this.rain = rand(this.clouds)
+                this.tile = (tileView != undefined) ? tileView : new GameTileView();
+
+            }
+
+            get envPolution() {
+                switch (this.env) {
+                    case 'city':
+                        return 25;
+                    case 'forest':
+                        return 0.1;
+                    // case 'scorched':
+                    //     return -5;
+                    default:
+                        return -1;
+                }
+            }
+
+            get envTemp() {
+                switch (this.env) {
+                    case 'water':
+                        return 20
+                    case 'glacier':
+                        return -40
+                    case 'ground':
+                    case 'forest':
+                    case 'city':
+                        return 25
+                }
+            }
+
+            clone() {
+                return new GameTile(this.location, this.env, this.temp, this.polution, this.height, this.tile)
+            }
+
+            get_next_gen(neighborhood) {
+                var cpy = this.clone()
+
+                let temp_sum = 0;
+                let pol_sum = 0;
+                let items_count = 0;
+                let was_windy = false;
+
+                for (let i in neighborhood) {
+                    let obj = neighborhood[i]
+                    temp_sum += obj.temp
+                    pol_sum += obj.polution
+                    items_count++
+                    if (obj.wind_str > 0 && 8-obj.wind_dir == i && cpy.wind_dir != i){
+                        items_count += obj.wind_str*0.1
+                        temp_sum += obj.wind_str*0.1*obj.temp
+                        pol_sum += obj.wind_str*0.1*obj.polution
+                        cpy.wind_str = Math.min(4,Math.max(obj.wind_str +rand(2)-1,0))
+                        cpy.wind_dir = rand(8)
+                        cpy.clouds = Math.min(3,Math.max(obj.clouds +rand(2)-1,0))
+                        cpy.rain =  (cpy.clouds > 0)? Math.min(3,Math.max(obj.rain +rand(2)-1,0)): 0
+                        was_windy = true
+                    }
+                }
+
+                cpy.polution = (pol_sum / items_count) + cpy.envPolution
+                
+                if (cpy.polution < 0)
+                    cpy.polution = 0 
+                cpy.temp = (temp_sum / items_count) -(cpy.rain +cpy.wind_str+cpy.clouds)/6  + ((cpy.polution == 0 ) ? -1 : cpy.polution/8) //+((cpy.env == 'water')? 2: 0)
+                if (neighborhood.filter((elem) => {
+                    return (elem.env == 'glacier')
+                }).length == 9) {
+                    cpy.temp += 10
+                }
+                if (!was_windy){
+                    cpy.wind_str = Math.min(4,Math.max(cpy.wind_str +rand(2)-1,0))
+                    cpy.clouds = Math.min(3,Math.max(cpy.clouds +rand(2)-1,0))
+                    if (cpy.clouds > 0)
+                        cpy.rain = Math.min(3,Math.max(cpy.rain +rand(2)-1,0))
+                    cpy.wind_dir = rand(8)
+                }
+
+                // cpy.temp = Math.max(-100, cpy.temp)
+                if (cpy.temp > 100) {
+                    cpy.env = 'scorched'
+                } else if (cpy.temp <= -10) {
+                    cpy.env = 'glacier'
+                } else if (cpy.env == 'glacier' && cpy.temp >= -20) {
+                    cpy.env = 'water'
+                } else if ((cpy.env == 'forest' && (cpy.temp >= 65 || cpy.polution >= 25)) || (cpy.env == 'scorched' && cpy.temp <= 60))
+                    cpy.env = 'ground'
+                else if (cpy.env == 'ground' && cpy.temp <= 45 && cpy.polution < 1)
+                    cpy.env = 'forest'
+                else if (neighborhood.filter((elem) => {
+                    return (elem.env == 'forest' && elem.polution < 0.4 && elem.temp < 42)
+                }).length == 9) {
+                    cpy.env = 'city'
+                }
+                
+
+                cpy.tile.update(cpy)
+                return cpy
+            }
+        }
+        class Gameboard {
+            constructor(size = 11) {
+                this.size = size;
+                this.running = false;
+                this.time = 0
+                this.time_label = document.getElementById('time-label')
+                this.board = new Array(size)
+                let env;
+                let r;
+                for (let i = 0; i < size; i++) {
+                    this.board[i] = new Array(size)
+                    for (let j = 0; j < size; j++) {
+                        r = rand(100)
+                        env = ((i > water_border-1 && i < size - water_border && j > water_border-1 && j < size - water_border) && !(i< size/2+water_border && i > size/2-water_border && j< size/2+water_border && j > size/2-water_border)) ? ((r > city_precentage) ? 'city' : (r > forest_precentage) ? 'forest' : 'ground') : ((r > glacier_precentage) ? 'glacier' : 'water')
+                        this.board[i][j] = new GameTile([i, j], env);
+                        this.board[i][j].tile.update(this.board[i][j])
+                        elem.appendChild(this.board[i][j].tile.panel)
+                    }
+                }
+            }
+
+            getNeighborhood(loc = [0, 0]) {
+                var res = []
+
+                for (let i = loc[0] - 1; i < loc[0] + 2; i++) {
+                    for (let j = loc[1] - 1; j < loc[1] + 2; j++) {
+                        let temp = this.board[mod(i, this.size)][mod(j, this.size)]
+                        res.push(temp)
+                    }
+                }
+
+                return res
+            }
+
+
+            update() {
+                var res = new Array(this.size);
+
+                for (let i = 0; i < this.size; i++) {
+                    res[i] = new Array(this.size)
+                    for (let j = 0; j < this.size; j++) {
+                        res[i][j] = this.board[i][j].get_next_gen(this.getNeighborhood([i, j]))
+                    }
+                }
+                for (let i = 0; i < this.size; i++) {
+                    
+                    for (let j = 0; j < this.size; j++) {
+                        delete this.board[i][j]
+                    }
+                    delete this.board[i]
+                }
+                delete this.board
+                this.board = res;
+                this.time_label.innerHTML = `Time: ${++this.time}`
+            }
+
+            async run() {
+                if (!this.running) {
+                    this.running = true
+
+                    while (this.running) {
+                        this.update()
+                        console.log(this.board)
+                        await sleep(250)
+                        
+                    }
+                    stopB.style.backgroundColor = 'maroon'
+                }
+            }
+
+        }
+
+        let gb = new Gameboard(51);
+    </script>
+
+</body>
+
+</html>
