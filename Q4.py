@@ -3,78 +3,62 @@ import cv2 as cv
 import sys
 
 LVLS = 5
-scaler = .5
-def reduce(imgs):
-    height, width, _ = imgs[0].shape
-    
-    width *= scaler
-    height *= scaler
-    print(height, width)
-    return [cv.resize(img, (int(width), int(height))) for img in imgs]
 
-    
-imgs = [cv.imread('lion-face.jpg'), cv.imread('tiger-face.jpg')]
+imgs = [cv.imread('Question4/Walnut.jpg'), cv.imread('Question4/brain.jpg')]
 
 if imgs[0] is None or imgs[1] is None:
     sys.exit(f'Could not read img')
 
 height, width, _ = imgs[0].shape
-imgs[1] = cv.resize(imgs[1], (width, height))
+imgs[1] = cv.resize(imgs[1], (width, height))  # Fit second image to be same size as the first
 
-imgs = reduce(imgs)
 
-mid = imgs[0].shape[1]//2
-img3 = np.hstack((imgs[0][:,:mid], imgs[1][:,mid:]))
-img1 = imgs[0]
-img2 = imgs[1]
+# Calculate Gaussian and Lapcilian Pyramids for both images
+gp_imgs = []
+lp_imgs = []
+for i in range(len(imgs)):
+    # Gaussian Pyramid
+    copy_img = imgs[i].copy()
+    gp_imgs.append([copy_img])
+    for j in range(LVLS):
+        copy_img = cv.pyrDown(copy_img)
+        gp_imgs[i].append(copy_img)
+        # cv.imshow(f'gaussian-lvl#{i}', copy_img)
 
-copy_img1=img1.copy()
-gp_img1=[copy_img1] #making a list for image 1 and its first element is image itself
-#gaussian pyramid for img1 image
-for i in range(LVLS):
-    copy_img1=cv.pyrDown(copy_img1)
-    gp_img1.append(copy_img1) #appending the pyr down image to the list of first image
-#copy image2 in a new variable
-copy_img2=img2.copy()
-gp_img2=[copy_img2] #making a list for image 2 and its first element is image itself
-#gaussian pyramid for img2 image
-for i in range(LVLS):
-    copy_img2=cv.pyrDown(copy_img2)
-    gp_img2.append(copy_img2) #appending the pyr down image to the list of second image
-copy_img1=gp_img1[5]#assigning the first image list last element to copied variable
-lp_img1=[copy_img1]#again making alist for image one whose first element is the last element of previous list
-#laplacian pyramid for img1 image
-for i in range(5,0,-1):
-    size=(gp_img1[i-1].shape[1],gp_img1[i-1].shape[0])
-    gaussian=cv.pyrUp(gp_img1[i],dstsize=size)
-    laplacian_img1=cv.subtract(gp_img1[i-1],gaussian)
-    lp_img1.append(laplacian_img1)
-#same process with img2 image
-copy_img2=gp_img2[5]#assigning the first image list last element to copied variable
-lp_img2=[copy_img2]#again making alist for image one whose first element is the last element of previous list
-#laplacian pyramid for img1 image
-for i in range(5,0,-1):
-    size=(gp_img2[i-1].shape[1],gp_img2[i-1].shape[0])
-    gaussian=cv.pyrUp(gp_img2[i],dstsize=size)
-    laplacian_img2=cv.subtract(gp_img2[i-1],gaussian)
-    lp_img2.append(laplacian_img2)
-#now add left and right halves of the images in each level of pyramid
-img1_img2_pyramid=[] #an empty list
-for img1_lap,img2_lap in zip(lp_img1,lp_img2):
-    cols,rows,ch=img1_lap.shape
-    laplacian=np.hstack((img2_lap[:,0:int(rows/2)],img1_lap[:,int(rows/2):]))
-    img1_img2_pyramid.append(laplacian)
-    # cv.imshow(f'reduce-lvl#{i}', laplacian)
-#now reconstruct
-img1_img2_reconstruct=img1_img2_pyramid[0]
-for i in range(1,LVLS+1):
-    size=(img1_img2_pyramid[i].shape[1],img1_img2_pyramid[i].shape[0])
-    img1_img2_reconstruct=cv.pyrUp(img1_img2_reconstruct,dstsize=size)
-    img1_img2_reconstruct=cv.add(img1_img2_pyramid[i],img1_img2_reconstruct)
-    # cv.imshow(f'recon-lvl#{i}', img1_img2_reconstruct)
+    # Laplacian Pyramid
+    copy_img = gp_imgs[i][5]
+    lp_imgs.append([copy_img])
+    for j in range(LVLS, 0, -1):
+        height, width, _ = gp_imgs[i][j-1].shape
+        gaussian = cv.pyrUp(gp_imgs[i][j], dstsize=(width, height))
+        laplacian_img = cv.subtract(gp_imgs[i][j-1], gaussian)
+        lp_imgs[i].append(laplacian_img)
+        cv.imshow(f'lapcilean-lvl#{i}', laplacian_img)
 
-cv.imshow('img1', imgs[0])
-cv.imshow('img2', imgs[1])
-cv.imshow('img3',img1_img2_reconstruct)
+
+# Combine the 2 images in every level of the lapcilian pyramid
+comb_pyramid = []  
+for img1_lap, img2_lap in zip(lp_imgs[0], lp_imgs[1]):
+    cols, rows, ch = img1_lap.shape
+    laplacian = np.hstack((img2_lap[:, 0:int(rows/2)], img1_lap[:, int(rows/2):]))
+    comb_pyramid.append(laplacian)
+    
+# Reconstruct final image from the comined lapcilean pyramid
+comb_recon = comb_pyramid[0]
+for i in range(1, LVLS+1):
+    size = (comb_pyramid[i].shape[1], comb_pyramid[i].shape[0])
+    comb_recon = cv.pyrUp(comb_recon, dstsize=size)
+    comb_recon = cv.add(comb_pyramid[i], comb_recon)
+    # Show every level
+    cv.imshow(f'recon-lvl#{i}', comb_recon)
+
+cv.imshow('image 1', imgs[0])
+cv.imshow('image 2', imgs[1])
+cv.imshow('Final Image', comb_recon)
 
 k = cv.waitKey(0)
+
+# Assignment B: It appears we get a decent result even after 3 levels
+
+
+
