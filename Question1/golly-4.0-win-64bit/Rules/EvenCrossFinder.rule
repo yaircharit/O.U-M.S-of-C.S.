@@ -36,7 +36,7 @@ var G = { 0, 2}
   1 E1 E2 0 0 5     # Start deletion in corners
   5 D1 D2 D3 D4 0   # EXTERMINATE
 
-  2 2 0 G 0 4       # Mark every second CA
+  2 2 0 G 0 4       # Mark every second CA in line
   4 4 D1 D2 D3 5    # If 2 marked CAs touch- self destruct
 
 
