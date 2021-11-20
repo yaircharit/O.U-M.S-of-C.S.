@@ -59,13 +59,13 @@ harris_thresholds = [(2, 3, 0.04), (2, 5, 0.07)]
 # Shows harris corners of specific image
 def harris(img_index):
     temp = cv.cvtColor(org[img_index], cv.COLOR_BGR2GRAY)
-    cv.imshow(f'{imgs[img_index]} sift', np.hstack(
+    cv.imshow(f'{imgs[img_index]} harris', np.hstack(
         [get_harris(temp, *th) for th in harris_thresholds]))
 
 
 # Shows SIFT points for specific image
 def sift(img_index):
-    temp = cv.cvtColor(org[img_index], cv.COLOR_BGR2GRAY)
+    temp = cv.cvtColor([img_index], cv.COLOR_BGR2GRAY)
 
     img_sifts = []
     s = cv.SIFT_create()
