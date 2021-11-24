@@ -18,11 +18,31 @@
 
 
     <script>
-        const water_border = 4
-        const city_precentage = 98
-        const forest_precentage = 30
-        const glacier_precentage = 90
-
+        var config = {
+            init: {
+                board_size: 51,
+                water_border_size: 4,
+                precs: {  //initializing spawn precenteges
+                    city: 98,
+                    forest: 30,
+                    glacier: 90
+                }
+            },
+            temp: { //Temperatures for environment changes
+                scorch: 100,
+                descorch: 60,
+                freeze: -10,
+                unfreeze: -20,
+                deforest: 65,
+                forest: 45,
+                city: 42
+            },
+            pol: {//Polution values for environment changes
+                deforest: 25,
+                forest: 1,
+                city: 0.4
+            }
+        }
 
         let elem = document.getElementById('gameboard');
         let stopB = document.getElementById('button-stop');
@@ -34,8 +54,8 @@
         function sleep(milliseconds) {
             return new Promise(resolve => setTimeout(resolve, milliseconds))
         }
-        function rand(num){
-            return Math.round(Math.random()*num)
+        function rand(num) {
+            return Math.round(Math.random() * num)
         }
         function onStopClick() {
             if (gb.running) {
@@ -80,18 +100,18 @@
                 this.location = loc;
                 this.env = env;
                 this.temp = (temp != -999) ? temp : this.envTemp
-                this.polution = (pol != -999) ? pol : (this.env == 'city')? 30: (this.env == 'forest')? 2 : 0
+                this.polution = (pol != -999) ? pol : (this.env == 'city') ? 30 : (this.env == 'forest') ? 2 : 0
                 if (this.polution < 0)
                     this.polution = 0;
                 this.height = (height != -999) ? height : 0;
                 this.wind_str = rand(4)
-                this.wind_dir = (this.wind_str > 0)? rand(8):-1
+                this.wind_dir = (this.wind_str > 0) ? rand(8) : -1
                 this.clouds = rand(3)
                 this.rain = rand(this.clouds)
                 this.tile = (tileView != undefined) ? tileView : new GameTileView();
 
             }
-        // default polution levels for each environment
+            // default polution levels for each environment
             get envPolution() {
                 switch (this.env) {
                     case 'city':
@@ -138,27 +158,27 @@
                     pol_sum += obj.polution
                     items_count++
                     // sum and modify winds and rains
-                    if (obj.wind_str > 0 && 8-obj.wind_dir == i && cpy.wind_dir != i){
-                        items_count += obj.wind_str*0.1
-                        temp_sum += obj.wind_str*0.1*obj.temp       //winds carry with them 10% of temperature and polution for each wind strength (up to 40%)
-                        pol_sum += obj.wind_str*0.1*obj.polution
-                        cpy.wind_str = Math.min(4,Math.max(obj.wind_str +rand(2)-1,0))
+                    if (obj.wind_str > 0 && 8 - obj.wind_dir == i && cpy.wind_dir != i) {
+                        items_count += obj.wind_str * 0.1
+                        temp_sum += obj.wind_str * 0.1 * obj.temp       //winds carry with them 10% of temperature and polution for each wind strength (up to 40%)
+                        pol_sum += obj.wind_str * 0.1 * obj.polution
+                        cpy.wind_str = Math.min(4, Math.max(obj.wind_str + rand(2) - 1, 0))
                         cpy.wind_dir = rand(8)
-                        cpy.clouds = Math.min(3,Math.max(obj.clouds +rand(2)-1,0))
-                        cpy.rain =  (cpy.clouds > 0)? Math.min(3,Math.max(obj.rain +rand(2)-1,0)): 0
+                        cpy.clouds = Math.min(3, Math.max(obj.clouds + rand(2) - 1, 0))
+                        cpy.rain = (cpy.clouds > 0) ? Math.min(3, Math.max(obj.rain + rand(2) - 1, 0)) : 0
                         was_windy = true
                     }
                 }
 
                 // New Polution Evaluation
                 cpy.polution = (pol_sum / items_count) + cpy.envPolution
-                
+
                 if (cpy.polution < 0)
-                    cpy.polution = 0 
-                
+                    cpy.polution = 0
+
                 // New Temperature Evaluation
-                cpy.temp = (temp_sum / items_count) -(cpy.rain +cpy.wind_str+cpy.clouds)/6  + ((cpy.polution == 0 ) ? -1 : cpy.polution/8) //+((cpy.env == 'water')? 2: 0)
-                
+                cpy.temp = (temp_sum / items_count) - (cpy.rain + cpy.wind_str + cpy.clouds) / 6 + ((cpy.polution == 0) ? -1 : cpy.polution / 8) //+((cpy.env == 'water')? 2: 0)
+
                 // Glacier Control
                 if (neighborhood.filter((elem) => {
                     return (elem.env == 'glacier')
@@ -167,31 +187,31 @@
                 }
 
                 // Generate wind if no wind was wooshed here
-                if (!was_windy){
-                    cpy.wind_str = Math.min(4,Math.max(cpy.wind_str +rand(2)-1,0))
-                    cpy.clouds = Math.min(3,Math.max(cpy.clouds +rand(2)-1,0))
+                if (!was_windy) {
+                    cpy.wind_str = Math.min(4, Math.max(cpy.wind_str + rand(2) - 1, 0))
+                    cpy.clouds = Math.min(3, Math.max(cpy.clouds + rand(2) - 1, 0))
                     if (cpy.clouds > 0)
-                        cpy.rain = Math.min(3,Math.max(cpy.rain +rand(2)-1,0))
+                        cpy.rain = Math.min(3, Math.max(cpy.rain + rand(2) - 1, 0))
                     cpy.wind_dir = rand(8)
                 }
 
-                if (cpy.temp > 100) { 
+                if (cpy.temp > config.temp.scorch) {
                     // Tile burned
                     cpy.env = 'scorched'
-                } else if (cpy.temp <= -10) {
+                } else if (cpy.temp <= config.temp.freeze) {
                     // Tile froze
                     cpy.env = 'glacier'
-                } else if (cpy.env == 'glacier' && cpy.temp >= -20) {
+                } else if (cpy.env == 'glacier' && cpy.temp >= config.temp.unfreeze) {
                     // Tile unforze
                     cpy.env = 'water'
-                } else if ((cpy.env == 'forest' && (cpy.temp >= 65 || cpy.polution >= 25)) || (cpy.env == 'scorched' && cpy.temp <= 60))
+                } else if ((cpy.env == 'forest' && (cpy.temp >= config.temp.deforest || cpy.polution >= config.pol.deforest)) || (cpy.env == 'scorched' && cpy.temp <= config.temp.descorch))
                     // Deforesterization
                     cpy.env = 'ground'
-                else if (cpy.env == 'ground' && cpy.temp <= 45 && cpy.polution < 1)
+                else if (cpy.env == 'ground' && cpy.temp <= config.temp.forest && cpy.polution < config.pol.forest)
                     // Reforesterization
                     cpy.env = 'forest'
                 else if (neighborhood.filter((elem) => {
-                    return (elem.env == 'forest' && elem.polution < 0.4 && elem.temp < 42)
+                    return (elem.env == 'forest' && elem.temp < config.temp.city && elem.polution < config.pol.city)
                 }).length == 9) {
                     // Spawn new city if all neighbors are foresets with low polution and ow temperature
                     cpy.env = 'city'
@@ -202,7 +222,7 @@
             }
         }
         class Gameboard {
-            constructor(size = 11) {
+            constructor(size = config.init.board_size) {
                 this.size = size;
                 this.running = false;
                 this.time = 0
@@ -215,14 +235,14 @@
                     for (let j = 0; j < size; j++) {
                         r = rand(100)
                         // randomize starting enviroment (edges and center are water)
-                        env = ((i > water_border-1 && i < size - water_border && j > water_border-1 && j < size - water_border) && !(i< size/2+water_border && i > size/2-water_border && j< size/2+water_border && j > size/2-water_border)) ? ((r > city_precentage) ? 'city' : (r > forest_precentage) ? 'forest' : 'ground') : ((r > glacier_precentage) ? 'glacier' : 'water')
+                        env = ((i > config.init.water_border_size - 1 && i < size - config.init.water_border_size && j > config.init.water_border_size - 1 && j < size - config.init.water_border_size) && !(i < size / 2 + config.init.water_border_size && i > size / 2 - config.init.water_border_size && j < size / 2 + config.init.water_border_size && j > size / 2 - config.init.water_border_size)) ? ((r > config.init.precs.city) ? 'city' : (r > config.init.precs.forest) ? 'forest' : 'ground') : ((r > config.init.precs.glacier) ? 'glacier' : 'water')
                         this.board[i][j] = new GameTile([i, j], env);
                         this.board[i][j].tile.update(this.board[i][j])
                         elem.appendChild(this.board[i][j].tile.panel)
                     }
                 }
             }
-            
+
             // Returns a list of the neighbors around loc
             getNeighborhood(loc = [0, 0]) {
                 var res = []
@@ -250,7 +270,7 @@
 
                 //delete previous generation
                 for (let i = 0; i < this.size; i++) {
-                    
+
                     for (let j = 0; j < this.size; j++) {
                         delete this.board[i][j]
                     }
@@ -269,7 +289,7 @@
 
                     while (this.running) {
                         this.update()
-                        console.log(this.board)
+                        // console.log(this.board)
                         await sleep(250)
                     }
                     stopB.style.backgroundColor = 'maroon'
@@ -278,7 +298,7 @@
 
         }
 
-        let gb = new Gameboard(51);
+        let gb = new Gameboard();
     </script>
 
 </body>
