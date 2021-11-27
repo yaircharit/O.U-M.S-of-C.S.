@@ -3,16 +3,23 @@
 <head>
     <link rel="stylesheet" href="GlobalWarming.css">
     <title>Game of Global Warming</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/2.9.4/Chart.js"></script>
 </head>
 
 <body>
     <div id='gametable'>
-        <div id='buttons'>
-            <button id="button-step" onclick="gb.update()">1 Step</button>
-            <button id="button-run" onclick='this.style.backgroundColor="gray"; gb.run()'>Run</button>
-            <button id="button-stop" onclick='onStopClick()'>Stop</button>
-            <label id='time-label'>Time: 0</label>
+        <div id='sidebar'>
+            <div id='buttons'>
+                <button id="button-step" onclick="gb.update()">1 Step</button>
+                <button id="button-run" onclick='this.style.backgroundColor="gray"; gb.run()'>Run</button>
+                <button id="button-stop" onclick='onStopClick()'>Stop</button>
+                <label id='time-label'>Time: 0</label>
+            </div>
+
+
+
         </div>
+        <canvas id="chart"></canvas>
         <div id='gameboard'></div>
     </div>
 
@@ -21,7 +28,7 @@
         var config = {
             init: {
                 board_size: 51,
-                water_border_size: 4,
+                water_border_size: 2,
                 precs: {  //initializing spawn precenteges
                     city: 98,
                     forest: 30,
@@ -47,6 +54,8 @@
         let elem = document.getElementById('gameboard');
         let stopB = document.getElementById('button-stop');
         let runB = document.getElementById('button-run');
+
+
 
         function mod(num1, num2) {
             return (num1 + num2) % num2;
@@ -226,7 +235,9 @@
                 this.size = size;
                 this.running = false;
                 this.time = 0
+                this.avgs = { temp: 0, pol: 0, cities: 0 }
                 this.time_label = document.getElementById('time-label')
+
                 this.board = new Array(size)
                 let env;
                 let r;
@@ -238,9 +249,57 @@
                         env = ((i > config.init.water_border_size - 1 && i < size - config.init.water_border_size && j > config.init.water_border_size - 1 && j < size - config.init.water_border_size) && !(i < size / 2 + config.init.water_border_size && i > size / 2 - config.init.water_border_size && j < size / 2 + config.init.water_border_size && j > size / 2 - config.init.water_border_size)) ? ((r > config.init.precs.city) ? 'city' : (r > config.init.precs.forest) ? 'forest' : 'ground') : ((r > config.init.precs.glacier) ? 'glacier' : 'water')
                         this.board[i][j] = new GameTile([i, j], env);
                         this.board[i][j].tile.update(this.board[i][j])
+                        this.avgs.temp += this.board[i][j].temp
+                        this.avgs.pol += this.board[i][j].polution
+                        this.avgs.cities += (this.board[i][j].env === 'city')
                         elem.appendChild(this.board[i][j].tile.panel)
                     }
                 }
+
+                this.avgs.temp /= size * size
+                this.avgs.pol /= size * size
+
+                this.chart = new Chart('chart', {
+                    type: 'line',
+                    data: {
+                        labels: [0],
+                        datasets: [
+                            {
+                                fill: false,
+                                lineTension: 0,
+                                // backgroundColor: "rgba(0,0,255,1.0)",
+                                borderColor: "red",
+                                data: [this.avgs.temp],
+                                label: 'temperature'
+                            },
+                            {
+                                // fill: true,
+                                lineTension: 0,
+                                // backgroundColor: "rgba(0,0,255,1.0)",
+                                borderColor: "green",
+                                data: [this.avgs.pol],
+                                fill: false,
+                                label: 'polution'
+                            },
+                            {
+                                // fill: true,
+                                lineTension: 0,
+                                // backgroundColor: "rgba(0,0,255,1.0)",
+                                borderColor: "purple",
+                                data: [this.avgs.cities],
+                                fill: false,
+                                label: 'cities'
+                            }]
+                    },
+                    options: {
+                        // legend: { fontSize:40 },
+                        scales: {
+                            xAxes: [{ticks: {length: 10, fontSize: 20}}],
+
+                            yAxes: [{ ticks: { fontSize: 20} }],
+                        }
+                    }
+                });
             }
 
             // Returns a list of the neighbors around loc
@@ -259,14 +318,21 @@
 
             update() {
                 var res = new Array(this.size);
-
+                this.avgs.temp = 0
+                this.avgs.pol = 0
+                this.avgs.cities = 0
                 // get next generation of tiles
                 for (let i = 0; i < this.size; i++) {
                     res[i] = new Array(this.size)
                     for (let j = 0; j < this.size; j++) {
                         res[i][j] = this.board[i][j].get_next_gen(this.getNeighborhood([i, j]))
+                        this.avgs.temp += res[i][j].temp
+                        this.avgs.pol += res[i][j].polution
+                        this.avgs.cities += (res[i][j].env === 'city')
                     }
                 }
+                this.avgs.temp /= this.size * this.size
+                this.avgs.pol /= this.size * this.size
 
                 //delete previous generation
                 for (let i = 0; i < this.size; i++) {
@@ -280,7 +346,15 @@
 
                 // set new generation as current
                 this.board = res;
+                
+                this.chart.data.datasets[0].data.push(this.avgs.temp)
+                this.chart.data.datasets[1].data.push(this.avgs.pol)
+                this.chart.data.datasets[2].data.push(this.avgs.cities)
                 this.time_label.innerHTML = `Time: ${++this.time}`
+                this.chart.data.labels.push(this.time)
+
+                this.chart.update()
+                // this.chart.update()
             }
 
             async run() {
@@ -289,7 +363,6 @@
 
                     while (this.running) {
                         this.update()
-                        // console.log(this.board)
                         await sleep(250)
                     }
                     stopB.style.backgroundColor = 'maroon'
@@ -299,6 +372,7 @@
         }
 
         let gb = new Gameboard();
+
     </script>
 
 </body>

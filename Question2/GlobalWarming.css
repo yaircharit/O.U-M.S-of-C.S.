@@ -50,10 +50,19 @@ label{
     margin: 1vw;
 }
 
-#buttons{
+#chart{
+    max-width: 20%;
+    position: fixed;
+    right: 0;
+    bottom: 0;
+    background-color: aliceblue;
+}
+
+#sidebar{
     display: inline-flex;
     flex-wrap: wrap;
     flex-direction: column;
+    justify-content: space-between;
     right: 0;
     top: 0;
     position: fixed;
@@ -63,6 +72,13 @@ label{
     border-style: double;
     border-top: none;
     border-right: none;
+    /* height: 100%; */
+}
+
+#buttons{
+    display: inline-flex;
+    flex-wrap: wrap;
+    flex-direction: column;
 }
 
 button{
