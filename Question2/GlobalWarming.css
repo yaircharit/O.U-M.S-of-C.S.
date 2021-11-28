@@ -45,17 +45,14 @@ label{
     margin:             var(--tile-margin)
 }
 
-#time-label{
-    font-size: 1vw;
-    margin: 1vw;
-}
-
 #chart{
-    max-width: 20%;
+    max-height: 20%;
+    max-width: 40%;
     position: fixed;
+    font-size: 40px;
     right: 0;
     bottom: 0;
-    background-color: aliceblue;
+    background-color: lightyellow;
 }
 
 #sidebar{
@@ -75,7 +72,24 @@ label{
     /* height: 100%; */
 }
 
-#buttons{
+label.vars-label,input,#time-label{
+    width: 3vw;
+    font-size: 1vw;
+    margin: 0.5vw;
+
+}
+
+input{
+  background-color: lightgray;  
+}
+
+.var-elements{
+    display: inline-flex;
+    justify-content: space-between;
+}
+
+
+#buttons,#vars{
     display: inline-flex;
     flex-wrap: wrap;
     flex-direction: column;
