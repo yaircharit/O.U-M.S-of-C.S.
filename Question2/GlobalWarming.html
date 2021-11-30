@@ -16,12 +16,7 @@
                 <center><label id='time-label'>Time: 0</label></center>
             </div>
             <label for='vars' class='vars-label' style="width: fit-content;">Polution Modifier</label>
-            <div id='vars'>
-
-
-            </div>
-
-
+            <div id='vars'></div>
         </div>
         <canvas id="chart"></canvas>
         <div id='gameboard'></div>
@@ -398,7 +393,6 @@
                 this.chart.data.labels.push(this.time)
 
                 this.chart.update()
-                // this.chart.update()
             }
 
             async run() {
@@ -420,7 +414,6 @@
 
         for (let i in config.update.pol) {
             vars_div.innerHTML += `<div class='var-elements'><label for="${i}-pol-var" class="vars-label">${i}:</label><input id="${i}-pol-var" name="${i}" type="number" value=${config.update.pol[i]} onchange="config.update.pol[this.name] = parseInt(this.value)"></div>`
-
         }
 
     </script>
