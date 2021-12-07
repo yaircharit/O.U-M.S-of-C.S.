@@ -48,14 +48,14 @@
                     pol: {//Polution values for environment changes
                         deforest: 25,
                         forest: 1,
-                        city: 0.4
+                        city: 0.1
                     }
                 },
                 pol: {
                     glacier: -1,
                     water: -1,
                     ground: -1,
-                    forest: 0.1,
+                    forest: 0,
                     city: 25,
                     scorched: -1
                 }
@@ -115,18 +115,19 @@
         }
 
         class GameTile {
-            constructor(loc = [0, 0], env = 'water', temp = -999, pol = -999, height = -999, tileView = undefined) {
+            constructor(loc = [0, 0], env = 'water', height = -999, temp = -999, pol = -999, tileView = undefined) {
                 this.location = loc;
                 this.env = env;
                 this.temp = (temp != -999) ? temp : this.envTemp
                 this.polution = (pol != -999) ? pol : (this.env == 'city') ? 30 : (this.env == 'forest') ? 2 : 0
                 if (this.polution < 0)
                     this.polution = 0;
-                this.height = (height != -999) ? height : 0;
+                this.height = (height != -999) ? height : this.envHeight;
                 this.wind_str = rand(4)
                 this.wind_dir = (this.wind_str > 0) ? rand(8) : -1
                 this.clouds = rand(3)
                 this.rain = rand(this.clouds)
+                this.bar_press = (3-this.height)*0.2 + this.temp*0.01
                 this.tile = (tileView != undefined) ? tileView : new GameTileView();
 
             }
@@ -149,8 +150,18 @@
                 }
             }
 
+            get envHeight(){
+                switch(this.env){
+                    case 'water':
+                    case 'glacier':
+                        return 0
+                    default:
+                        return rand(3)
+                }
+            }
+
             clone() {
-                return new GameTile(this.location, this.env, this.temp, this.polution, this.height, this.tile)
+                return new GameTile(this.location, this.env, this.height, this.temp, this.polution, this.tile)
             }
 
             get_next_gen(neighborhood) {
@@ -160,26 +171,28 @@
                 let pol_sum = 0;
                 let items_count = 0;
                 let was_windy = false;
-
+                let min_bar_press = 0
                 // Sum neighborhood traits
                 for (let i in neighborhood) {
                     let obj = neighborhood[i]
                     temp_sum += obj.temp
                     pol_sum += obj.polution
                     items_count++
-                    // sum and modify winds and rains
-                    if (obj.wind_str > 0 && 8 - obj.wind_dir == i && cpy.wind_dir != i) {
+                    let height_diff = obj.height - cpy.height
+                    if (obj.bar_press < neighborhood[min_bar_press].bar_press)
+                        min_bar_press = i
+
+                    if (8 - obj.wind_dir == i){
                         items_count += obj.wind_str * 0.1
                         temp_sum += obj.wind_str * 0.1 * obj.temp       //winds carry with them 10% of temperature and polution for each wind strength (up to 40%)
                         pol_sum += obj.wind_str * 0.1 * obj.polution
-                        cpy.wind_str = Math.min(4, Math.max(obj.wind_str + rand(2) - 1, 0))
-                        cpy.wind_dir = rand(8)
-                        cpy.clouds = Math.min(3, Math.max(obj.clouds + rand(2) - 1, 0))
-                        cpy.rain = (cpy.clouds > 0) ? Math.min(3, Math.max(obj.rain + rand(2) - 1, 0)) : 0
+                        cpy.wind_str = Math.min(4, Math.max(obj.wind_str + height_diff, 0))
+                        cpy.clouds = Math.min(3, Math.max(obj.clouds + (cpy.env == 'water')?1: -1, 0))
+                        cpy.rain = (cpy.clouds > 0) ? Math.min(3, Math.max(obj.rain + (cpy.clouds > 1)? 1: -1, 0)) : 0
                         was_windy = true
                     }
                 }
-
+                cpy.wind_dir = min_bar_press
                 // New Polution Evaluation
                 cpy.polution = (pol_sum / items_count) + cpy.envPolution
 
@@ -188,6 +201,7 @@
 
                 // New Temperature Evaluation
                 cpy.temp = (temp_sum / items_count) - (cpy.rain + cpy.wind_str + cpy.clouds) / 6 + cpy.polution / 6 //+((cpy.env == 'water')? 2: 0)
+                cpy.bar_press = (3-cpy.height)*0.2 + cpy.temp*0.01
 
                 // Glacier Control
                 if (neighborhood.filter((elem) => {
@@ -200,14 +214,7 @@
                     cpy.temp -= 10
                 }
 
-                // Generate wind if no wind was wooshed here
-                if (!was_windy) {
-                    cpy.wind_str = Math.min(4, Math.max(cpy.wind_str + rand(2) - 1, 0))
-                    cpy.clouds = Math.min(3, Math.max(cpy.clouds + rand(2) - 1, 0))
-                    if (cpy.clouds > 0)
-                        cpy.rain = Math.min(3, Math.max(cpy.rain + rand(2) - 1, 0))
-                    cpy.wind_dir = rand(8)
-                }
+
 
                 if (cpy.temp > config.update.env.temp.scorch) {
                     // Tile burned
