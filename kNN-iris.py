@@ -10,16 +10,16 @@ from sklearn.neighbors import KNeighborsClassifier
 from sklearn.metrics import accuracy_score
 from sklearn.model_selection import train_test_split
 
-# import some data to play with
+# load IRIS dataset
 iris = datasets.load_iris()
-# Take the first two features. We could avoid this by using a two-dim dataset
+# Take the first two features.
 X = iris.data[:, :2]
 y = iris.target
 
 scores = dict()
 scores_list = []
 X_train, X_test, Y_train, Y_test = train_test_split(X,y,test_size=0.2,random_state=4)
-max_k = 10
+max_k = 30
 for k in range(1, max_k+1):
     print(f'--- k = {k} ---')
     kNN = KNeighborsClassifier(n_neighbors=k)
