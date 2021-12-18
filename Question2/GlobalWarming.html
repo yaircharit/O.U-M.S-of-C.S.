@@ -13,11 +13,10 @@
                 <button id="button-step" onclick="gb.update()">1 Step</button>
                 <button id="button-run" onclick='this.style.backgroundColor="gray"; gb.run()'>Run</button>
                 <button id="button-stop" onclick='onStopClick()'>Stop</button>
-                <label id='time-label'>Time: 0</label>
+                <center><label id='time-label'>Time: 0</label></center>
             </div>
-
-
-
+            <label for='vars' class='vars-label' style="width: fit-content;">Polution Modifier</label>
+            <div id='vars'></div>
         </div>
         <canvas id="chart"></canvas>
         <div id='gameboard'></div>
@@ -28,33 +27,44 @@
         var config = {
             init: {
                 board_size: 51,
-                water_border_size: 2,
+                water_border_size: 3,
                 precs: {  //initializing spawn precenteges
                     city: 98,
                     forest: 30,
                     glacier: 90
                 }
             },
-            temp: { //Temperatures for environment changes
-                scorch: 100,
-                descorch: 60,
-                freeze: -10,
-                unfreeze: -20,
-                deforest: 65,
-                forest: 45,
-                city: 42
-            },
-            pol: {//Polution values for environment changes
-                deforest: 25,
-                forest: 1,
-                city: 0.4
+            update: {
+                env: {
+                    temp: { //Temperatures for environment changes
+                        scorch: 100,
+                        descorch: 60,
+                        freeze: -10,
+                        unfreeze: -20,
+                        deforest: 65,
+                        forest: 45,
+                        city: 42
+                    },
+                    pol: {//Polution values for environment changes
+                        deforest: 25,
+                        forest: 1,
+                        city: 0.1
+                    }
+                },
+                pol: {
+                    glacier: -1,
+                    water: -1,
+                    ground: -1,
+                    forest: 0,
+                    city: 25,
+                    scorched: -1
+                }
             }
         }
 
         let elem = document.getElementById('gameboard');
         let stopB = document.getElementById('button-stop');
         let runB = document.getElementById('button-run');
-
 
 
         function mod(num1, num2) {
@@ -105,33 +115,25 @@
         }
 
         class GameTile {
-            constructor(loc = [0, 0], env = 'water', temp = -999, pol = -999, height = -999, tileView = undefined) {
+            constructor(loc = [0, 0], env = 'water', height = -999, temp = -999, pol = -999, tileView = undefined) {
                 this.location = loc;
                 this.env = env;
                 this.temp = (temp != -999) ? temp : this.envTemp
                 this.polution = (pol != -999) ? pol : (this.env == 'city') ? 30 : (this.env == 'forest') ? 2 : 0
                 if (this.polution < 0)
                     this.polution = 0;
-                this.height = (height != -999) ? height : 0;
+                this.height = (height != -999) ? height : this.envHeight;
                 this.wind_str = rand(4)
                 this.wind_dir = (this.wind_str > 0) ? rand(8) : -1
                 this.clouds = rand(3)
                 this.rain = rand(this.clouds)
+                this.bar_press = (3-this.height)*0.2 + this.temp*0.01
                 this.tile = (tileView != undefined) ? tileView : new GameTileView();
 
             }
             // default polution levels for each environment
             get envPolution() {
-                switch (this.env) {
-                    case 'city':
-                        return 25;
-                    case 'forest':
-                        return 0.1;
-                    // case 'scorched':
-                    //     return -5;
-                    default:
-                        return -1;
-                }
+                return config.update.pol[this.env]
             }
 
             // default temperatures for each environment
@@ -148,8 +150,18 @@
                 }
             }
 
+            get envHeight(){
+                switch(this.env){
+                    case 'water':
+                    case 'glacier':
+                        return 0
+                    default:
+                        return rand(3)
+                }
+            }
+
             clone() {
-                return new GameTile(this.location, this.env, this.temp, this.polution, this.height, this.tile)
+                return new GameTile(this.location, this.env, this.height, this.temp, this.polution, this.tile)
             }
 
             get_next_gen(neighborhood) {
@@ -159,26 +171,28 @@
                 let pol_sum = 0;
                 let items_count = 0;
                 let was_windy = false;
-
+                let min_bar_press = 0
                 // Sum neighborhood traits
                 for (let i in neighborhood) {
                     let obj = neighborhood[i]
                     temp_sum += obj.temp
                     pol_sum += obj.polution
                     items_count++
-                    // sum and modify winds and rains
-                    if (obj.wind_str > 0 && 8 - obj.wind_dir == i && cpy.wind_dir != i) {
+                    let height_diff = obj.height - cpy.height
+                    if (obj.bar_press < neighborhood[min_bar_press].bar_press)
+                        min_bar_press = i
+
+                    if (8 - obj.wind_dir == i){
                         items_count += obj.wind_str * 0.1
                         temp_sum += obj.wind_str * 0.1 * obj.temp       //winds carry with them 10% of temperature and polution for each wind strength (up to 40%)
                         pol_sum += obj.wind_str * 0.1 * obj.polution
-                        cpy.wind_str = Math.min(4, Math.max(obj.wind_str + rand(2) - 1, 0))
-                        cpy.wind_dir = rand(8)
-                        cpy.clouds = Math.min(3, Math.max(obj.clouds + rand(2) - 1, 0))
-                        cpy.rain = (cpy.clouds > 0) ? Math.min(3, Math.max(obj.rain + rand(2) - 1, 0)) : 0
+                        cpy.wind_str = Math.min(4, Math.max(obj.wind_str + height_diff, 0))
+                        cpy.clouds = Math.min(3, Math.max(obj.clouds + (cpy.env == 'water')?1: -1, 0))
+                        cpy.rain = (cpy.clouds > 0) ? Math.min(3, Math.max(obj.rain + (cpy.clouds > 1)? 1: -1, 0)) : 0
                         was_windy = true
                     }
                 }
-
+                cpy.wind_dir = min_bar_press
                 // New Polution Evaluation
                 cpy.polution = (pol_sum / items_count) + cpy.envPolution
 
@@ -186,41 +200,39 @@
                     cpy.polution = 0
 
                 // New Temperature Evaluation
-                cpy.temp = (temp_sum / items_count) - (cpy.rain + cpy.wind_str + cpy.clouds) / 6 + ((cpy.polution == 0) ? -1 : cpy.polution / 8) //+((cpy.env == 'water')? 2: 0)
+                cpy.temp = (temp_sum / items_count) - (cpy.rain + cpy.wind_str + cpy.clouds) / 6 + cpy.polution / 6 //+((cpy.env == 'water')? 2: 0)
+                cpy.bar_press = (3-cpy.height)*0.2 + cpy.temp*0.01
 
                 // Glacier Control
                 if (neighborhood.filter((elem) => {
                     return (elem.env == 'glacier')
                 }).length == 9) {
                     cpy.temp += 10
+                } else if (neighborhood.filter((elem) => {
+                    return (elem.env == 'water')
+                }).length == 9) {
+                    cpy.temp -= 10
                 }
 
-                // Generate wind if no wind was wooshed here
-                if (!was_windy) {
-                    cpy.wind_str = Math.min(4, Math.max(cpy.wind_str + rand(2) - 1, 0))
-                    cpy.clouds = Math.min(3, Math.max(cpy.clouds + rand(2) - 1, 0))
-                    if (cpy.clouds > 0)
-                        cpy.rain = Math.min(3, Math.max(cpy.rain + rand(2) - 1, 0))
-                    cpy.wind_dir = rand(8)
-                }
 
-                if (cpy.temp > config.temp.scorch) {
+
+                if (cpy.temp > config.update.env.temp.scorch) {
                     // Tile burned
                     cpy.env = 'scorched'
-                } else if (cpy.temp <= config.temp.freeze) {
+                } else if (cpy.temp <= config.update.env.temp.freeze) {
                     // Tile froze
                     cpy.env = 'glacier'
-                } else if (cpy.env == 'glacier' && cpy.temp >= config.temp.unfreeze) {
+                } else if (cpy.env == 'glacier' && cpy.temp >= config.update.env.temp.unfreeze) {
                     // Tile unforze
                     cpy.env = 'water'
-                } else if ((cpy.env == 'forest' && (cpy.temp >= config.temp.deforest || cpy.polution >= config.pol.deforest)) || (cpy.env == 'scorched' && cpy.temp <= config.temp.descorch))
+                } else if ((cpy.env == 'forest' && (cpy.temp >= config.update.env.temp.deforest || cpy.polution >= config.update.env.pol.deforest)) || (cpy.env == 'scorched' && cpy.temp <= config.update.env.temp.descorch))
                     // Deforesterization
                     cpy.env = 'ground'
-                else if (cpy.env == 'ground' && cpy.temp <= config.temp.forest && cpy.polution < config.pol.forest)
+                else if (cpy.env == 'ground' && cpy.temp <= config.update.env.temp.forest && cpy.polution < config.update.env.pol.forest)
                     // Reforesterization
                     cpy.env = 'forest'
                 else if (neighborhood.filter((elem) => {
-                    return (elem.env == 'forest' && elem.temp < config.temp.city && elem.polution < config.pol.city)
+                    return (elem.env == 'forest' && elem.temp < config.update.env.temp.city && elem.polution < config.update.env.pol.city)
                 }).length == 9) {
                     // Spawn new city if all neighbors are foresets with low polution and ow temperature
                     cpy.env = 'city'
@@ -256,9 +268,20 @@
                     }
                 }
 
-                this.avgs.temp /= size * size
-                this.avgs.pol /= size * size
+                this.avgs.temp /= size ** 2
+                this.avgs.pol /= size ** 2
 
+                let std_div = { temp: 0, pol: 0 };
+                for (let i = 0; i < size; i++) {
+                    for (let j = 0; j < size; j++) {
+                        std_div.temp += (this.board[i][j].temp - this.avgs.temp) ** 2
+                        std_div.pol += (this.board[i][j].polution - this.avgs.pol) ** 2
+                    }
+                }
+                std_div.temp /= size ** 2
+                std_div.temp = Math.sqrt(std_div.temp)
+                std_div.pol /= size ** 2
+                std_div.pol = Math.sqrt(std_div.pol)
                 this.chart = new Chart('chart', {
                     type: 'line',
                     data: {
@@ -267,37 +290,46 @@
                             {
                                 fill: false,
                                 lineTension: 0,
-                                // backgroundColor: "rgba(0,0,255,1.0)",
                                 borderColor: "red",
                                 data: [this.avgs.temp],
-                                label: 'temperature'
+                                label: 'Temperature'
                             },
                             {
-                                // fill: true,
                                 lineTension: 0,
-                                // backgroundColor: "rgba(0,0,255,1.0)",
                                 borderColor: "green",
                                 data: [this.avgs.pol],
                                 fill: false,
-                                label: 'polution'
+                                label: 'Polution'
                             },
                             {
-                                // fill: true,
                                 lineTension: 0,
-                                // backgroundColor: "rgba(0,0,255,1.0)",
                                 borderColor: "purple",
                                 data: [this.avgs.cities],
                                 fill: false,
-                                label: 'cities'
+                                label: 'Cities'
+                            },
+                            {
+                                lineTension: 0,
+                                borderColor: "pink",
+                                data: [std_div.temp],
+                                fill: false,
+                                label: 'Temperature Standard Diviation'
+                            },
+                            {
+                                lineTension: 0,
+                                borderColor: "lightgreen",
+                                data: [std_div.pol],
+                                fill: false,
+                                label: 'Polution Standard Diviation'
                             }]
                     },
                     options: {
-                        // legend: { fontSize:40 },
+                        legend: { position: 'bottom', labels: { fontSize: 30 } },
                         scales: {
-                            xAxes: [{ticks: {length: 10, fontSize: 20}}],
-
-                            yAxes: [{ ticks: { fontSize: 20} }],
-                        }
+                            xAxes: [{ ticks: { fontSize: 20 } }],
+                            yAxes: [{ ticks: { fontSize: 20 } }],
+                        },
+                        annotation: { annotations: [] }
                     }
                 });
             }
@@ -334,6 +366,18 @@
                 this.avgs.temp /= this.size * this.size
                 this.avgs.pol /= this.size * this.size
 
+                let std_div = { temp: 0, pol: 0 };
+                for (let i = 0; i < this.size; i++) {
+                    for (let j = 0; j < this.size; j++) {
+                        std_div.temp += (this.board[i][j].temp - this.avgs.temp) ** 2
+                        std_div.pol += (this.board[i][j].polution - this.avgs.pol) ** 2
+                    }
+                }
+                std_div.temp /= this.size ** 2
+                std_div.temp = Math.sqrt(std_div.temp)
+                std_div.pol /= this.size ** 2
+                std_div.pol = Math.sqrt(std_div.pol)
+
                 //delete previous generation
                 for (let i = 0; i < this.size; i++) {
 
@@ -346,15 +390,16 @@
 
                 // set new generation as current
                 this.board = res;
-                
+
                 this.chart.data.datasets[0].data.push(this.avgs.temp)
                 this.chart.data.datasets[1].data.push(this.avgs.pol)
                 this.chart.data.datasets[2].data.push(this.avgs.cities)
+                this.chart.data.datasets[3].data.push(std_div.temp)
+                this.chart.data.datasets[4].data.push(std_div.pol)
                 this.time_label.innerHTML = `Time: ${++this.time}`
                 this.chart.data.labels.push(this.time)
 
                 this.chart.update()
-                // this.chart.update()
             }
 
             async run() {
@@ -372,6 +417,11 @@
         }
 
         let gb = new Gameboard();
+        let vars_div = document.getElementById('vars')
+
+        for (let i in config.update.pol) {
+            vars_div.innerHTML += `<div class='var-elements'><label for="${i}-pol-var" class="vars-label">${i}:</label><input id="${i}-pol-var" name="${i}" type="number" value=${config.update.pol[i]} onchange="config.update.pol[this.name] = parseInt(this.value)"></div>`
+        }
 
     </script>
 
