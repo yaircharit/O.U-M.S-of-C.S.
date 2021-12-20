@@ -84,7 +84,7 @@ class RandomCellularAutomatonAnalyzer:
             return (im,)
 
         history = np.asarray(self.hist)
-        animation.FuncAnimation(
+        anim  = animation.FuncAnimation(
             fig,
             func=_animate,
             frames=range(history.shape[0]),
@@ -96,8 +96,8 @@ class RandomCellularAutomatonAnalyzer:
         plt.show()
         
     def __str__(self):
-        return f'\nRandomCellularAutomatonAnalyzer #{self.id} is {self.status}: time={self.time}, f_total={self.fitness()}\n\n'
-max_iterations = 10000
+        return f'\nRandomCellularAutomatonAnalyzer #{self.id} is {self.status}: time={self.time}, f_total={self.fitness()}'
+max_iterations = 1000
 c= RandomCellularAutomatonAnalyzer()
-while c.status == 'alive' and c.time <= max_iterations: c.run()
+while c.status == 'alive' and c.time < max_iterations: c.run()
 c.animate()
