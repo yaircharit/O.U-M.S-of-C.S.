@@ -189,8 +189,8 @@ class Genetics:
             new_pop.append(new_starter)
             
         self.pop_size = len(new_pop)
-        self.pop = [ CAAnalyzer(starter, self.generations) for starter in new_pop]
-
+        self.pop = [ CAAnalyzer(starter, self.generations) for starter in new_pop[:self.pop_size]]
+        self.generations += 1
     
     def run(self, max_generations=10, improvement_deadline=5, **kwargs):
         count = max_generations
@@ -202,7 +202,7 @@ class Genetics:
             self.process_generation(**kwargs)
             print(self)
             out_file.write(f'{str(self)}\n')
-            if any([self.pop[0].fitness <= best for best in self.__best_fitness[-improvement_deadline-1:-1]]):
+            if all([self.pop[0].fitness <= best for best in self.__best_fitness[-improvement_deadline-1:-1]]):
                 count_down -= 1
                 if count_down == 0:
                     break
@@ -217,7 +217,8 @@ class Genetics:
         print('Saving best results, please wait for process to finish')
         self.best.sort(key= lambda ca: ca.fitness, reverse=True)
         self.best[0].save_animation() 
-        plt.bar([*range(1,self.generations+1)],self.__best_fitness)
+        X = [*range(1,self.generations+1)]
+        plt.bar(X,self.__best_fitness)
         plt.ylabel('Max Fitness')
         plt.xlabel('Genertation')
         plt.show()
