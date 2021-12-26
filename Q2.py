@@ -8,6 +8,7 @@ import random
 from matplotlib import animation
 from math import ceil
 from threading import Thread
+from sys import argv
 
 
 def compare_matrices(a, b):
@@ -59,7 +60,7 @@ class CAAnalyzer:
                     break
             self.current = sg.rules.conway_classic(self.current)
 
-        self.fitness = self.peak_coverage[0]* self.time
+        self.fitness = self.peak_coverage[0]* self.time*10
         if self.status == 'alive':
             self.update_status(True)
         return self.status
@@ -132,8 +133,13 @@ class Genetics:
         self.generations = 1
         self.__fitness_sum = 0
         self.__best_fitness = []
-        self.pop = [CAAnalyzer(Genetics.create_random_life(),1)
-                    for i in range(population_size)]
+        pop = []
+        for i in range(self.pop_size):
+            new_starter = Genetics.create_random_life()
+            while any([compare_matrices(new_starter,starter) for starter in pop]):
+                new_starter = Genetics.create_random_life()
+            pop.append(new_starter)
+        self.pop = [CAAnalyzer(starter,1) for starter in pop]
         self.best = []
 
     @staticmethod
@@ -149,38 +155,53 @@ class Genetics:
             while CA.time < max_iterations and  CA.status == 'alive':
                 CA.run(iterations_batch_size)
                 print(f'\t- {CA.time}\tfit= {round(CA.fitness,2)}')
-            
+            CA.fitness /= max_iterations
             self.__fitness_sum += CA.fitness
         self.pop.sort(reverse=True, key=lambda ca: ca.fitness)
         self.__best_fitness.append(self.pop[0].fitness)
         self.best.append(self.pop[0])
+        self.best.sort(key= lambda ca: ca.fitness, reverse=True)
+        if self.best[0].generation != self.generations:
+            self.__fitness_sum += self.best[0].fitness
 
     def set_new_generation(self):
         pop_prec = [round(CA.fitness/self.__fitness_sum*self.pop_size)
                     for CA in self.pop]
-        self.generations += 1
+        
         new_pop = []
+        pop_starters = [self.best[0].starter]+[ CA.starter for CA in self.pop]
+        if self.generations != self.best[0].generation:
+            for i in range(round(self.best[0].fitness/self.__fitness_sum*self.pop_size)):
+                new_starter = self.best[0].mutate()
+                while any([compare_matrices(new_starter,starter) for starter in pop_starters]):
+                    new_starter = self.best[0].mutate()
+                new_pop.append(new_starter)
         for i in range(len(pop_prec)):
             for j in range(pop_prec[i]):
-                new_pop.append(CAAnalyzer(self.pop[i].mutate(),self.generations))
+                new_starter = self.pop[i].mutate()
+                while any([compare_matrices(new_starter,starter) for starter in pop_starters]):
+                    new_starter = self.pop[i].mutate()
+                new_pop.append(new_starter)
         while len(new_pop) < self.pop_size:
-            new_pop.append(CAAnalyzer(Genetics.create_random_life(),self.generations))
+            new_starter = Genetics.create_random_life()
+            while any([compare_matrices(new_starter,starter) for starter in pop_starters]):
+                new_starter = Genetics.create_random_life()
+            new_pop.append(new_starter)
             
         self.pop_size = len(new_pop)
-        self.pop = new_pop
+        self.pop = [ CAAnalyzer(starter, self.generations) for starter in new_pop]
 
     
     def run(self, max_generations=10, improvement_deadline=5, **kwargs):
         count = max_generations
         count_down = improvement_deadline
+        res = ''
+        out_file = open('./out.txt', 'a')
+        # out_file.write(f'max iterations: {kwargs['max_iterations']}')
         while count:
-            thread = Thread(target=self.process_generation, kwargs=(kwargs))
-            thread.start()    
-            if len(self.best):
-                self.best[-1].save_animation()    
-            thread.join()
+            self.process_generation(**kwargs)
             print(self)
-            
+            out_file.write(f'{str(self)}\n')
             if any([self.pop[0].fitness <= best for best in self.__best_fitness[-improvement_deadline-1:-1]]):
                 count_down -= 1
                 if count_down == 0:
@@ -192,13 +213,15 @@ class Genetics:
             count -= 1
         if not count:
             self.generations -= 1
-        # [ CA.save_animation() for CA in self.best ]
-        # self.best[0].save_animation() 
+        out_file.close()
+        print('Saving best results, please wait for process to finish')
+        self.best.sort(key= lambda ca: ca.fitness, reverse=True)
+        self.best[0].save_animation() 
         plt.bar([*range(1,self.generations+1)],self.__best_fitness)
         plt.ylabel('Max Fitness')
         plt.xlabel('Genertation')
         plt.show()
-        
+        plt.close()
 
     def __str__(self):
         res = f'\n[Genetics]\tpop_size: {self.pop_size}\tGeneration {self.generations}\n\nPopulation:\t\tID\tStatus\tTime\tFitness Score\tFitness Score %'
@@ -208,8 +231,18 @@ class Genetics:
         return res
     
 if __name__ == '__main__':
-    pop_size = int(input('Please enter population size: '))
-    while pop_size <= 0:
-        pop_size = int(input('Please enter population size (0 < x): '))
+    pop_size = 100
+    iters = 2000
+    try:
+        if len(argv) > 1:
+            pop_size = int(argv[1])
+            if pop_size < 1:
+                raise Exception()
+        if len(argv) > 2:
+            iters = int(argv[2])
+            if iters < 1:
+                raise Exception()
+    except:
+        print('ERROR: population size must be a positive integer')
     g = Genetics(pop_size)
-    g.run(30, max_iterations=5000)
+    g.run(30, max_iterations=iters, iterations_batch_size=500)
