@@ -10,6 +10,12 @@ import os
 from numpy.random import randint
 from math import floor
 
+def counter(start:int=0,end:int=-1):
+    i=start
+    while start != end:
+        i+=1
+        yield i
+
 def compare_matrices(a, b):
     """
     param a: boolean matrix
@@ -27,11 +33,10 @@ def oneVall(a, b_list):
     Compares a against all arrays/matrices in b_list
     :param a:       Boolean matrix/array
     :param b_list:  List of boolean matrices/arrays
-    :return:        True if a is different than everything in b_list
+    :return:        True if a is not in b_list
     """
     for b in b_list:
-        res = np.logical_xor(a, b)
-        if not res.any():
+        if compare_matrices(a,b):
             return False
     return True
 
@@ -40,8 +45,6 @@ class CAAnalyzer:
     Cellular Automaton Analyzer
     given starter configuration- will calculate CA's lifespan and max board coverage
     """
-    
-
 
     def __init__(self,id:int , starter:list, generation:int=0,board_size:int = 200):
         """
@@ -77,15 +80,14 @@ class CAAnalyzer:
                 self.coverage = cell_coverage(self.current)
                 if self.coverage > self.peak_coverage[0]:
                     self.peak_coverage = (self.coverage,self.time)
-                self.hist.append(self.current)
                 self.update_status()
             else:
                 # Extend animation a bit after CA stabelizes
                 count_down -= 1
                 if count_down == 0:
                     break
+            self.hist.append(self.current)
             self.current = sg.rules.conway_classic(self.current) # update board
-        self.current = self.hist[-1]
         self.fitness = self.peak_coverage[0]* self.time
         if self.status == 'alive':
             # Check for long loops
@@ -98,12 +100,12 @@ class CAAnalyzer:
         Checks for loops and updates status (alive / dead / looper)
         :param looper_check:    Number of iteration to check for a loop
         """
-        rev_hist = self.hist[-looper_check:-2]
+        rev_hist = self.hist[-looper_check:-1]
         rev_hist.reverse()
         if not oneVall(self.current,rev_hist):
+            # match found
             self.status = 'looper'
         else:
-            # alive, dead, looper
             self.status = 'alive' if self.coverage > 0 else 'dead'
 
     def set_simulator(self):
@@ -183,17 +185,14 @@ class CAAnalyzer:
     def __str__(self):
         return f'CellularAutomaton #{self.id}\t{self.status}\t{self.time}\t{round(self.fitness,5)}'
 
-def counter(start:int=0,end:int=-1):
-    i=start
-    while start != end:
-        i+=1
-        yield i
+
         
 class GeneticAlg:
     """
     Genetic Algorithm Class
     Run simulations on a random population, find best results and mutate them. REPEAT
     """
+    output_folder='./outputs'
     def __init__(self, population_size:int=100, board_size:int=200, starter_size:int=5):
         """
         initialize
@@ -202,7 +201,8 @@ class GeneticAlg:
         :param starter_size:    Size of the initial configuration placed on the board 
         """
         self.__count = counter()
-        self.output_path = f'./outputs/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
+        
+        self.output_path = f'{GeneticAlg.output_folder}/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
         self.init_pop_size = self.pop_size = population_size
         self.generations = 1
         self.__fitness_sum = 0
@@ -286,6 +286,8 @@ class GeneticAlg:
         :param local_min_range: Number of generations back to compare to, when lower or equal than x previous generations run shall stop
         """
         count = max_generations 
+        if not os.path.exists(GeneticAlg.output_folder):
+            os.mkdir(GeneticAlg.output_folder)
         os.mkdir(self.output_path) # Create unique folder as output folder
         with open(f'{self.output_path}/data.txt', 'w') as out_file:
             out_file.write(f'population size: {self.pop_size}\nmax iterations: {max_iterations}\n\n')
@@ -306,8 +308,8 @@ class GeneticAlg:
         
         print('Saving best results, please wait for process to finish')
         # Saving best result animation
-        # self.pop.sort(key= lambda ca: ca.fitness, reverse=True)
         self.pop[0].save_animation(self.output_path) 
+        
         # Saving bar chart summery of the process
         X = [*range(1,self.generations+1)]
         plt.bar(X,self.__best_fitness)
@@ -330,6 +332,11 @@ def main(pop_size=30,iters=5000, board_size:int=200, starter_size:int=5,local_mi
 if __name__ == '__main__':
     args = {'pop_size':30,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5}
     flags = {'-p':'pop_size','-i':'iters','-b':'board_size','-s':'starter_size','-l':'local_min_range'}
+    discr = ['-p = population size for each generation',
+            '-i = Maximum number of iterations to run on each CAAnalyzer',
+            '-b = Board size of each CAAnalyzer',
+            '-s = Size of the initial starter configuration of each CAAnalyzer',
+            '-l = Limit of generations without improving fitness score',]
     try:
         if len(argv) > 1:
             for arg in argv[1:]:
@@ -340,6 +347,9 @@ if __name__ == '__main__':
                     raise
     except Exception:
         print(f'ERROR: {arg} is invalid')
+        print(f'Viable arguments are:')
+        [print(f'\t{line}') for line in discr]
+        exit(1)
 
     for i in range(10):
         main(**args)

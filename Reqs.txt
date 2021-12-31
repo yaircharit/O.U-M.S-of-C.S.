@@ -1,0 +1,5 @@
+### Requirements ##
+
+pyseagull
+numpy
+matplotlib
