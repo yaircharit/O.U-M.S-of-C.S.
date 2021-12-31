@@ -22,6 +22,18 @@ def compare_matrices(a, b):
     xor = np.logical_xor(a, b)
     return not xor.any()
 
+def oneVall(a, b_list):
+    """
+    Compares a against all arrays/matrices in b_list
+    :param a:       Boolean matrix/array
+    :param b_list:  List of boolean matrices/arrays
+    :return:        True if a is different than everything in b_list
+    """
+    for b in b_list:
+        res = np.logical_xor(a, b)
+        if not res.any():
+            return False
+    return True
 
 class CAAnalyzer:
     """
@@ -29,14 +41,15 @@ class CAAnalyzer:
     given starter configuration- will calculate CA's lifespan and max board coverage
     """
     
-    board_size = 200
 
-    def __init__(self,id:int , starter:list, generation:int=0):
+
+    def __init__(self,id:int , starter:list, generation:int=0,board_size:int = 200):
         """
         :param id:          CA id number
         :param starter:     boolean matrix
         :param generation:  CA generation
         """
+        self.__board_size = board_size
         self.starter = np.array(starter)
         self.board = None
         self.hist = []
@@ -73,7 +86,7 @@ class CAAnalyzer:
                     break
             self.current = sg.rules.conway_classic(self.current) # update board
         self.current = self.hist[-1]
-        self.fitness = self.peak_coverage[0]* self.time*10/max(iters,self.time)
+        self.fitness = self.peak_coverage[0]* self.time
         if self.status == 'alive':
             # Check for long loops
             self.update_status(self.time)
@@ -82,9 +95,12 @@ class CAAnalyzer:
 
     def update_status(self,looper_check:int=50):
         """
+        Checks for loops and updates status (alive / dead / looper)
         :param looper_check:    Number of iteration to check for a loop
         """
-        if any((compare_matrices(self.current, b) for b in self.hist[-(looper_check+1):-1])):
+        rev_hist = self.hist[-looper_check:-2]
+        rev_hist.reverse()
+        if not oneVall(self.current,rev_hist):
             self.status = 'looper'
         else:
             # alive, dead, looper
@@ -94,9 +110,9 @@ class CAAnalyzer:
         """
         initiates simulator, board and current variables
         """
-        self.board = sg.Board((CAAnalyzer.board_size, CAAnalyzer.board_size))
+        self.board = sg.Board((self.__board_size, self.__board_size))
         self.board.add(Custom(self.starter), loc=(
-            (CAAnalyzer.board_size//2, CAAnalyzer.board_size//2)))
+            (self.__board_size//2, self.__board_size//2)))
         self.sim = sg.Simulator(self.board)
         self.current = self.board.state
 
@@ -110,6 +126,17 @@ class CAAnalyzer:
         new_starter = np.array(self.starter)
         new_starter[i][j] = not self.starter[i][j]
         return new_starter
+    
+    def mate(self, partner):
+        """
+        Combines 2 CAAnalyzers
+        :param partner: CAAnalyzer
+        :return:        new baby starter
+        :rtype:         np.ndarray
+        """
+        
+        pass
+    
 
     def animate(self):
         """
@@ -121,7 +148,7 @@ class CAAnalyzer:
         X_blank = np.zeros(self.board.size, dtype=bool)
         im = ax.imshow(X_blank, cmap=plt.cm.binary, interpolation="nearest")
         im.set_clim(-0.05, 1)
-        fig.suptitle(f'Fitness: {self.fitness}, max_time: {self.time}')
+        fig.suptitle(f'Fitness: {self.fitness}, lifespan: {self.time}')
         def _animate(i, history):
             self.current_pos = history[i]
             im.set_data(self.current_pos)
@@ -167,40 +194,51 @@ class GeneticAlg:
     Genetic Algorithm Class
     Run simulations on a random population, find best results and mutate them. REPEAT
     """
-    def __init__(self, population_size:int=100):
+    def __init__(self, population_size:int=100, board_size:int=200, starter_size:int=5):
         """
+        initialize
         :param population_size: Defines the population size of ALL generations
+        :param board_size:      Size of the Game of Life board, all sides of the board are connected
+        :param starter_size:    Size of the initial configuration placed on the board 
         """
         self.__count = counter()
         self.output_path = f'./outputs/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
-        self.pop_size = population_size
+        self.init_pop_size = self.pop_size = population_size
         self.generations = 1
         self.__fitness_sum = 0
         self.__best_fitness = []
-        pop = []
-        for i in range(self.pop_size):
+        self.__board_size = board_size
+        self.__starter_size = starter_size
+        self.starters = []
+        for i in range(self.init_pop_size):
             # generate random population
-            GeneticAlg.generate_new_starter(pop,randint,2,size=(5,5))
-        self.pop = [CAAnalyzer(next(self.__count),starter,1) for starter in pop]
-        self.best = []
+            self.generate_new_starter(randint,2,size=(self.__starter_size,self.__starter_size))
+        self.pop = [CAAnalyzer(next(self.__count),starter,1,self.__board_size) for starter in self.starters]
 
     def process_generation(self, max_iterations:int=2000):
         """
+        Processes every CA in population.
+        Will stop if CA is not alive or maximum iterations have been reached
         :param max_iterations:      maximum iterations for each CA to run
         :return:    Description of the processed generation 
         :rtype:     str
         """
-        self.__fitness_sum = 0
-        res = ''
+        # self.__fitness_sum = 0
+        res = f'\t ----------------- Generation #{self.generations} -----------------'
+        print(res)
         for CA in self.pop:
-            CA.run(max_iterations)
+            while CA.time < max_iterations and CA.status == 'alive': 
+                CA.run()
             print(f'\t{CA}')
             res += f'\t{CA}\n'
             self.__fitness_sum += CA.fitness
         self.pop.sort(reverse=True, key=lambda ca: ca.fitness)  # Sort by fitness
         self.__best_fitness.append(self.pop[0].fitness)
-        self.best.append(self.pop[0])
-        self.best.sort(key= lambda ca: ca.fitness, reverse=True) # Find the best of the best
+        # self.best.append(self.pop[0])
+        # self.best.sort(key= lambda ca: ca.fitness, reverse=True) # Find the best of the best
+        apendg = f'\n[WINNER]{self.pop[0]}\t{floor(self.pop[0].fitness/self.__fitness_sum*self.pop_size)}\n'#\n[ BEST ]{self.best[0]}\tGen {self.best[0].generation}\n'
+        print(apendg)
+        res += apendg
         return res
 
     def set_new_generation(self):
@@ -216,27 +254,28 @@ class GeneticAlg:
         for i in range(len(pop_prec)):
             for j in range(pop_prec[i]):
                 # Generate population according to calculated precentages
-                GeneticAlg.generate_new_starter(new_pop,self.pop[i].mutate)
+                new_pop.append(self.generate_new_starter(self.pop[i].mutate))
                 
-        while len(new_pop) < self.pop_size:
+        while len(new_pop) < self.init_pop_size:
             # Fill population to be exactly the set amount
-            GeneticAlg.generate_new_starter(new_pop,randint,2,size=(5,5))
+            new_pop.append(self.generate_new_starter(randint,2,size=(self.__starter_size,self.__starter_size)))
 
         self.generations += 1
-        self.pop = [ CAAnalyzer(next(self.__count),starter, self.generations) for starter in new_pop[:self.pop_size]]
-        
-    @staticmethod
-    def generate_new_starter(pop_list:list,gen_function,*args, **kwargs):
+        self.pop += [ CAAnalyzer(next(self.__count),starter, self.generations,self.__board_size) for starter in new_pop[:self.init_pop_size]]
+        self.pop_size = len(self.pop)
+    
+    def generate_new_starter(self,gen_function,*args, **kwargs):
         """
-        Generates and adds a unique starter to pop_list.
-        :param pop_list:        A list of starters, the new starter will be unique in the list
+        Generates and adds a unique starter to self.starters
         :param gen_function:    A function that generates a starter (i.e. randint or CA.mutate), passing args and kwargs to it
+        :return:                The new starter found
         """
         new_starter = gen_function(*args,**kwargs)
-        while any([compare_matrices(new_starter,starter) for starter in pop_list]):
+        i = counter()
+        while next(i)<100 and not oneVall(new_starter,self.starters):
             new_starter = gen_function(*args,**kwargs)
-        pop_list.append(new_starter)
-        
+        self.starters.append(new_starter)
+        return new_starter
     
     def run(self, max_generations=30, max_iterations=2000, local_min_range=5):
         """
@@ -249,19 +288,14 @@ class GeneticAlg:
         count = max_generations 
         os.mkdir(self.output_path) # Create unique folder as output folder
         with open(f'{self.output_path}/data.txt', 'w') as out_file:
-            out_file.write(f'population size: {self.pop_size}\nmax iterations: {max_iterations}\n')
+            out_file.write(f'population size: {self.pop_size}\nmax iterations: {max_iterations}\n\n')
             while count:
-                header = f'\t ----------------- Generation #{self.generations} -----------------'
-                print(header)
                 data = self.process_generation(max_iterations)
-                apendg = f'\n[WINNER]{self.pop[0]}\t{floor(self.pop[0].fitness/self.__fitness_sum*self.pop_size)}\n[ BEST ]{self.best[0]}\tGen {self.best[0].generation}\n'
-                print(apendg)
-                
-                if self.generations > local_min_range and all([self.__best_fitness[-1] <= best for best in self.__best_fitness[-local_min_range-1:-1]]):
+                out_file.write(f'{data}\n')
+                best = self.pop[0].fitness
+                if self.generations > local_min_range and all([best <= p for p in self.__best_fitness[-local_min_range-1:-1]]):
                     #if local minimum
                     break
-                
-                out_file.write(f'{header}\n{data}\n{apendg}\n')
 
                 self.set_new_generation()
                 count -= 1
@@ -272,8 +306,8 @@ class GeneticAlg:
         
         print('Saving best results, please wait for process to finish')
         # Saving best result animation
-        self.best.sort(key= lambda ca: ca.fitness, reverse=True)
-        self.best[0].save_animation(self.output_path) 
+        # self.pop.sort(key= lambda ca: ca.fitness, reverse=True)
+        self.pop[0].save_animation(self.output_path) 
         # Saving bar chart summery of the process
         X = [*range(1,self.generations+1)]
         plt.bar(X,self.__best_fitness)
@@ -289,23 +323,23 @@ class GeneticAlg:
             res = f'{res}\n{CA}\t\t{round(CA.fitness/self.__fitness_sum*100,4)}%'
         return res
 
-def main(pop_size=100,iters=2000):
-    g = GeneticAlg(pop_size)
-    g.run(30, max_iterations=iters)
+def main(pop_size=30,iters=5000, board_size:int=200, starter_size:int=5,local_min_range:int=5):
+    g = GeneticAlg(pop_size,board_size,starter_size)
+    g.run(30, max_iterations=iters,local_min_range=local_min_range)
 
 if __name__ == '__main__':
-    pop_size=100
-    iters=2000
+    args = {'pop_size':30,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5}
+    flags = {'-p':'pop_size','-i':'iters','-b':'board_size','-s':'starter_size','-l':'local_min_range'}
     try:
         if len(argv) > 1:
-            pop_size = int(argv[1])
-            if pop_size < 1:
-                raise Exception()
-        if len(argv) > 2:
-            iters = int(argv[2])
-            if iters < 1:
-                raise Exception()
-    except:
-        print('ERROR: population size must be a positive integer')
+            for arg in argv[1:]:
+                key,val = arg.split('=')
+                if key in flags:
+                    args[flags[key]] = int(val)           
+                else:
+                    raise
+    except Exception:
+        print(f'ERROR: {arg} is invalid')
+
     for i in range(10):
-        main(pop_size,iters)
+        main(**args)
