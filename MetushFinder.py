@@ -2,6 +2,7 @@ import seagull as sg
 from seagull.lifeforms import Custom
 from seagull.utils.statistics import cell_coverage
 import matplotlib.pyplot as plt
+import matplotlib.cm as cm
 import numpy as np
 from matplotlib import animation
 from sys import argv
@@ -39,6 +40,18 @@ def oneVall(a, b_list):
         if compare_matrices(a,b):
             return False
     return True
+
+def flip_random_bit(starter, extra_iters:int=1):
+    """
+    Flips the valut of a random bit in a given matrix
+    :param starter: boolean matrix
+    :param iters:   number of random bits to flip
+    """
+    new_starter = np.array(starter)
+    for iter in range(1+extra_iters):
+        i, j = randint(starter.shape[0]), randint(starter.shape[0])
+        new_starter[i][j] = not starter[i][j]
+    return new_starter
 
 class CAAnalyzer:
     """
@@ -116,29 +129,7 @@ class CAAnalyzer:
         self.board.add(Custom(self.starter), loc=(
             (self.__board_size//2, self.__board_size//2)))
         self.sim = sg.Simulator(self.board)
-        self.current = self.board.state
-
-    def mutate(self):
-        """
-        Mutates one bit of the starter copy
-        :return:    The mutated starter
-        :rtype:     np.ndarray
-        """
-        i, j = randint(self.starter.shape[0]), randint(self.starter.shape[0])
-        new_starter = np.array(self.starter)
-        new_starter[i][j] = not self.starter[i][j]
-        return new_starter
-    
-    def mate(self, partner):
-        """
-        Combines 2 CAAnalyzers
-        :param partner: CAAnalyzer
-        :return:        new baby starter
-        :rtype:         np.ndarray
-        """
-        
-        pass
-    
+        self.current = self.board.state    
 
     def animate(self):
         """
@@ -150,7 +141,7 @@ class CAAnalyzer:
         X_blank = np.zeros(self.board.size, dtype=bool)
         im = ax.imshow(X_blank, cmap=plt.cm.binary, interpolation="nearest")
         im.set_clim(-0.05, 1)
-        fig.suptitle(f'Fitness: {self.fitness}, lifespan: {self.time}')
+        fig.suptitle(f'Board size: {self.__board_size},Fitness: {self.fitness}, lifespan: {self.time}')
         def _animate(i, history):
             self.current_pos = history[i]
             im.set_data(self.current_pos)
@@ -178,7 +169,8 @@ class CAAnalyzer:
         :param folder:      output path
         """
         anim = self.animate()
-        anim.save(f'{folder}/gen {self.generation}- {round(self.fitness,6)}.gif',writer=animation.PillowWriter(fps=10))
+        file_name = f'board size {self.__board_size} - gen {self.generation} - {round(self.fitness,6)}.gif'
+        anim.save(f'{folder}/{file_name}',writer=animation.PillowWriter(fps=10))
         plt.close()
         print(f"{folder}/gen {self.generation}- {round(self.fitness,6)}.gif Saved successfuly")
     
@@ -202,7 +194,7 @@ class GeneticAlg:
         """
         self.__count = counter()
         
-        self.output_path = f'{GeneticAlg.output_folder}/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
+        self.output_path = f'{GeneticAlg.output_folder}/{population_size}/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
         self.init_pop_size = self.pop_size = population_size
         self.generations = 1
         self.__fitness_sum = 0
@@ -223,7 +215,7 @@ class GeneticAlg:
         :return:    Description of the processed generation 
         :rtype:     str
         """
-        # self.__fitness_sum = 0
+        self.__fitness_sum = 0
         res = f'\t ----------------- Generation #{self.generations} -----------------'
         print(res)
         for CA in self.pop:
@@ -234,9 +226,7 @@ class GeneticAlg:
             self.__fitness_sum += CA.fitness
         self.pop.sort(reverse=True, key=lambda ca: ca.fitness)  # Sort by fitness
         self.__best_fitness.append(self.pop[0].fitness)
-        # self.best.append(self.pop[0])
-        # self.best.sort(key= lambda ca: ca.fitness, reverse=True) # Find the best of the best
-        apendg = f'\n[WINNER]{self.pop[0]}\t{floor(self.pop[0].fitness/self.__fitness_sum*self.pop_size)}\n'#\n[ BEST ]{self.best[0]}\tGen {self.best[0].generation}\n'
+        apendg = f'\n[WINNER]{self.pop[0]}\tGen {self.pop[0].generation}\n'
         print(apendg)
         res += apendg
         return res
@@ -250,18 +240,25 @@ class GeneticAlg:
         # Calculate perant precentages according to fitness
         pop_prec = [floor(CA.fitness/self.__fitness_sum*self.pop_size)
                     for CA in self.pop]
+        # applying the niche method
+        mutation_boost = max(pop_prec,key=pop_prec.count)//2
         new_pop = []
         for i in range(len(pop_prec)):
-            for j in range(pop_prec[i]):
-                # Generate population according to calculated precentages
-                new_pop.append(self.generate_new_starter(self.pop[i].mutate))
-                
-        while len(new_pop) < self.init_pop_size:
-            # Fill population to be exactly the set amount
-            new_pop.append(self.generate_new_starter(randint,2,size=(self.__starter_size,self.__starter_size)))
-
+            if pop_prec[i] >= 1:
+                for j in range(pop_prec[i]):
+                    # Generate population according to calculated precentages
+                    new_starter = self.generate_new_starter(flip_random_bit,self.pop[i].starter,mutation_boost)
+                    if new_starter is not None:
+                        new_pop.append(new_starter)
+                    
+        for i in range(self.init_pop_size):
+            # Fill population with new randoms
+            new_starter = self.generate_new_starter(randint,2,size=(self.__starter_size,self.__starter_size))
+            if new_starter is not None:
+                new_pop.append(new_starter)
+        self.pop = self.pop[:self.init_pop_size//2]
         self.generations += 1
-        self.pop += [ CAAnalyzer(next(self.__count),starter, self.generations,self.__board_size) for starter in new_pop[:self.init_pop_size]]
+        self.pop += [ CAAnalyzer(next(self.__count),starter, self.generations,self.__board_size) for starter in new_pop]
         self.pop_size = len(self.pop)
     
     def generate_new_starter(self,gen_function,*args, **kwargs):
@@ -274,8 +271,10 @@ class GeneticAlg:
         i = counter()
         while next(i)<100 and not oneVall(new_starter,self.starters):
             new_starter = gen_function(*args,**kwargs)
-        self.starters.append(new_starter)
-        return new_starter
+        if next(i) <= 100:
+            self.starters.append(new_starter)
+            return new_starter
+        return None
     
     def run(self, max_generations=30, max_iterations=2000, local_min_range=5):
         """
@@ -288,14 +287,16 @@ class GeneticAlg:
         count = max_generations 
         if not os.path.exists(GeneticAlg.output_folder):
             os.mkdir(GeneticAlg.output_folder)
+        if not os.path.exists(f'{GeneticAlg.output_folder}/{self.init_pop_size}'):
+            os.mkdir(f'{GeneticAlg.output_folder}/{self.init_pop_size}')
+            
         os.mkdir(self.output_path) # Create unique folder as output folder
         with open(f'{self.output_path}/data.txt', 'w') as out_file:
-            out_file.write(f'population size: {self.pop_size}\nmax iterations: {max_iterations}\n\n')
+            out_file.write(f'board_size: {self.__board_size}\npopulation size: {self.pop_size}\nmax iterations: {max_iterations}\n\n')
             while count:
                 data = self.process_generation(max_iterations)
                 out_file.write(f'{data}\n')
-                best = self.pop[0].fitness
-                if self.generations > local_min_range and all([best <= p for p in self.__best_fitness[-local_min_range-1:-1]]):
+                if self.generations > local_min_range and all([self.pop[0].fitness <= p for p in self.__best_fitness[-local_min_range-1:-1]]):
                     #if local minimum
                     break
 
@@ -317,6 +318,8 @@ class GeneticAlg:
         plt.xlabel('Genertation')
         plt.savefig(f'{self.output_path}/summery.png')
         plt.close()
+        plt.imshow(self.pop[0].starter,interpolation='nearest',cmap=cm.Greys_r)
+        plt.savefig(f'{self.output_path}/starter.png')
 
     def __str__(self):
         res = f'\n[GeneticAlg]\tpop_size: {self.pop_size}\tGeneration {self.generations}\n\nPopulation:\t\tID\tStatus\tTime\tFitness Score\tFitness Score %'
@@ -325,18 +328,20 @@ class GeneticAlg:
             res = f'{res}\n{CA}\t\t{round(CA.fitness/self.__fitness_sum*100,4)}%'
         return res
 
-def main(pop_size=30,iters=5000, board_size:int=200, starter_size:int=5,local_min_range:int=5):
+def main(pop_size=30,iters=5000, board_size:int=200, starter_size:int=5,local_min_range:int=5,generations:int=30):
     g = GeneticAlg(pop_size,board_size,starter_size)
-    g.run(30, max_iterations=iters,local_min_range=local_min_range)
+    g.run(max_generations=generations, max_iterations=iters,local_min_range=local_min_range)
 
 if __name__ == '__main__':
-    args = {'pop_size':30,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5}
-    flags = {'-p':'pop_size','-i':'iters','-b':'board_size','-s':'starter_size','-l':'local_min_range'}
+    help_keys = ['-h','help','-help']
+    args = {'pop_size':30,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5,'generations':30}
+    flags = {'-p':'pop_size','-i':'iters','-b':'board_size','-s':'starter_size','-l':'local_min_range','-g':'generations'}
     discr = ['-p = population size for each generation',
             '-i = Maximum number of iterations to run on each CAAnalyzer',
             '-b = Board size of each CAAnalyzer',
             '-s = Size of the initial starter configuration of each CAAnalyzer',
-            '-l = Limit of generations without improving fitness score',]
+            '-l = Limit of generations without improving fitness score',
+            '-g = Generations limit']
     try:
         if len(argv) > 1:
             for arg in argv[1:]:
@@ -344,12 +349,15 @@ if __name__ == '__main__':
                 if key in flags:
                     args[flags[key]] = int(val)           
                 else:
-                    raise
+                    if key not in help_keys:
+                        raise
+                    print(f'Viable arguments are:')
+                    [print(f'\t{line}') for line in discr]
+                    exit(0)
+                    
     except Exception:
-        print(f'ERROR: {arg} is invalid')
-        print(f'Viable arguments are:')
-        [print(f'\t{line}') for line in discr]
+        print(f'ERROR: {arg} is invalid\nUse -h for more information')
         exit(1)
-
+    
     for i in range(10):
         main(**args)
