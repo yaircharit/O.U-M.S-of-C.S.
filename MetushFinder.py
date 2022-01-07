@@ -185,7 +185,7 @@ class GeneticAlg:
     Run simulations on a random population, find best results and mutate them. REPEAT
     """
     output_folder='./outputs'
-    def __init__(self, population_size:int=100, board_size:int=200, starter_size:int=5):
+    def __init__(self, population_size:int=10, board_size:int=200, starter_size:int=5):
         """
         initialize
         :param population_size: Defines the population size of ALL generations
@@ -194,7 +194,7 @@ class GeneticAlg:
         """
         self.__count = counter()
         
-        self.output_path = f'{GeneticAlg.output_folder}/{population_size}/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
+        self.output_path = f'{GeneticAlg.output_folder}/{"-".join(str(datetime.now()).split(".")[0].split(":"))}'  #a unique folder as the output path
         self.init_pop_size = self.pop_size = population_size
         self.generations = 1
         self.__fitness_sum = 0
@@ -276,7 +276,7 @@ class GeneticAlg:
             return new_starter
         return None
     
-    def run(self, max_generations=30, max_iterations=2000, local_min_range=5):
+    def run(self, max_generations=30, max_iterations=5000, local_min_range=5):
         """
         Runs the genetic algorithm for until max_generations reached or fitness score stabelizes (local minimum)
         Prints best result and all acquired data to ./output/<time of init>
@@ -287,8 +287,6 @@ class GeneticAlg:
         count = max_generations 
         if not os.path.exists(GeneticAlg.output_folder):
             os.mkdir(GeneticAlg.output_folder)
-        if not os.path.exists(f'{GeneticAlg.output_folder}/{self.init_pop_size}'):
-            os.mkdir(f'{GeneticAlg.output_folder}/{self.init_pop_size}')
             
         os.mkdir(self.output_path) # Create unique folder as output folder
         with open(f'{self.output_path}/data.txt', 'w') as out_file:
@@ -313,28 +311,30 @@ class GeneticAlg:
         
         # Saving bar chart summery of the process
         X = [*range(1,self.generations+1)]
+        plt.close()
         plt.bar(X,self.__best_fitness)
         plt.ylabel('Max Fitness')
         plt.xlabel('Genertation')
         plt.savefig(f'{self.output_path}/summery.png')
         plt.close()
         plt.imshow(self.pop[0].starter,interpolation='nearest',cmap=cm.Greys_r)
+        plt.suptitle(f'For board sized {self.__board_size}')
         plt.savefig(f'{self.output_path}/starter.png')
 
     def __str__(self):
         res = f'\n[GeneticAlg]\tpop_size: {self.pop_size}\tGeneration {self.generations}\n\nPopulation:\t\tID\tStatus\tTime\tFitness Score\tFitness Score %'
 
         for CA in self.pop:
-            res = f'{res}\n{CA}\t\t{round(CA.fitness/self.__fitness_sum*100,4)}%'
+            res = f'{res}\n{CA}'
         return res
 
-def main(pop_size=30,iters=5000, board_size:int=200, starter_size:int=5,local_min_range:int=5,generations:int=30):
+def main(pop_size=10,iters=5000, board_size:int=200, starter_size:int=5,local_min_range:int=5,generations:int=30):
     g = GeneticAlg(pop_size,board_size,starter_size)
     g.run(max_generations=generations, max_iterations=iters,local_min_range=local_min_range)
 
 if __name__ == '__main__':
     help_keys = ['-h','help','-help']
-    args = {'pop_size':30,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5,'generations':30}
+    args = {'pop_size':10,'iters':5000,'board_size':200,'starter_size':5,'local_min_range':5,'generations':30}
     flags = {'-p':'pop_size','-i':'iters','-b':'board_size','-s':'starter_size','-l':'local_min_range','-g':'generations'}
     discr = ['-p = population size for each generation',
             '-i = Maximum number of iterations to run on each CAAnalyzer',
